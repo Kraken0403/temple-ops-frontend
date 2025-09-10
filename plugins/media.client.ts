@@ -1,4 +1,4 @@
-import { useMediaPickerStore } from '@/stores/mediaPicker'
+import { useMediaPickerStore } from '~/stores/mediaPicker'
 
 export default defineNuxtPlugin(() => {
   const store = useMediaPickerStore()
