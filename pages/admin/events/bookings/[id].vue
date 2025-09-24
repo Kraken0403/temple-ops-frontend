@@ -20,11 +20,15 @@
             {{ formatDate(event.date) }} at {{ event.venue }}
           </p>
         </div>
+
+        <!-- ⬇️ Export to Excel -->
         <button
-          @click="downloadCSV"
-          class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          @click="exportExcel"
+          :disabled="exporting"
+          class="px-4 py-2 rounded text-white"
+          :class="exporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'"
         >
-          Export CSV
+          {{ exporting ? 'Exporting…' : 'Export to Excel' }}
         </button>
       </div>
 
@@ -106,6 +110,7 @@ const event = ref(null)
 const bookings = ref([])
 const loading = ref(true)
 const error = ref(false)
+const exporting = ref(false)
 
 const currentPage = ref(1)
 const itemsPerPage = 15
@@ -148,35 +153,47 @@ function goBack() {
   router.push('/admin/events/bookings')
 }
 
-function downloadCSV() {
-  const rows = bookings.value.map(b => [
-    b.id,
-    b.pax,
-    b.userName || '-',
-    b.userEmail || '-',
-    b.userPhone || '-',
-    formatDateTime(b.bookedAt)
-  ])
-  const csv = [
-    ['Booking ID', 'Seats', 'Name', 'Email', 'Phone', 'Booked At'],
-    ...rows
-  ].map(e => e.join(',')).join('\n')
+/** ⬇️ Export to Excel using SheetJS (xlsx) */
+async function exportExcel() {
+  try {
+    exporting.value = true
+    const xlsx = await import('xlsx')
 
-  const blob = new Blob([csv], { type: 'text/csv' })
-  const url = window.URL.createObjectURL(blob)
+    const headers = ['Booking ID', 'Seats', 'Name', 'Email', 'Phone', 'Booked At']
+    const rows = bookings.value.map(b => [
+      b.id,
+      b.pax,
+      b.userName || '—',
+      b.userEmail || '—',
+      b.userPhone || '—',
+      formatDateTime(b.bookedAt),
+    ])
 
-  const today = new Date()
-  const formattedDate = today.toISOString().split('T')[0] // YYYY-MM-DD
-  const fileName = `${event.value.name?.replace(/\s+/g, '_') || 'Event'}_${formattedDate}_Bookings.csv`
+    const aoa = [headers, ...rows]
+    const ws  = xlsx.utils.aoa_to_sheet(aoa)
 
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', fileName)
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+    // Optional: auto width
+    ws['!cols'] = headers.map((h, i) => {
+      const colVals = [h, ...rows.map(r => String(r[i] ?? ''))]
+      const maxLen = Math.max(...colVals.map(v => v.length))
+      return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
+    })
+
+    const wb = xlsx.utils.book_new()
+    xlsx.utils.book_append_sheet(wb, ws, 'Bookings')
+
+    const today = new Date().toISOString().split('T')[0]
+    const safeName = (event.value?.name || 'Event').replace(/[^\w\-]+/g, '_')
+    const filename = `${safeName}_${today}_Bookings.xlsx`
+
+    xlsx.writeFile(wb, filename)
+  } catch (e) {
+    console.error('Excel export failed:', e)
+    alert('Export failed. See console for details.')
+  } finally {
+    exporting.value = false
+  }
 }
-
 
 onMounted(async () => {
   try {
