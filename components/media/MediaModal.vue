@@ -1,8 +1,8 @@
-<!-- components/media/MediaModal.vue -->
 <template>
-    <div v-if="open" class="fixed inset-0 z-50">
+  <Teleport to="body">
+    <div v-if="open" class="fixed inset-0 z-[100]"> <!-- bumped above z-50 -->
       <div class="absolute inset-0 bg-black/40" @click="$emit('close')"></div>
-  
+
       <div class="absolute inset-0 flex items-center justify-center p-4">
         <div class="w-full max-w-5xl bg-white rounded-xl shadow-lg flex flex-col">
           <!-- Header -->
@@ -13,13 +13,15 @@
             </div>
             <button class="text-sm text-gray-500" @click="$emit('close')">Close</button>
           </div>
-  
+
           <!-- Toolbar (library) -->
           <div v-if="tab==='library'" class="px-4 pt-3 flex items-center gap-3">
             <input v-model="q" @input="debouncedFetch" placeholder="Search…" class="border rounded px-3 py-2 w-64" />
-            <div class="ml-auto text-sm text-gray-500">{{ multiple ? selected.length + ' selected' : (selected[0]?.filename || 'None') }}</div>
+            <div class="ml-auto text-sm text-gray-500">
+              {{ multiple ? selected.length + ' selected' : (selected[0]?.filename || 'None') }}
+            </div>
           </div>
-  
+
           <!-- Body -->
           <div class="p-4 overflow-y-auto" style="max-height: 70vh">
             <!-- Library -->
@@ -38,13 +40,13 @@
                 </button>
               </div>
               <div v-else class="text-gray-500 text-center py-10">No media found.</div>
-  
+
               <div class="mt-4 flex justify-between">
                 <button class="px-3 py-1 border rounded" :disabled="page<=1" @click="prev">Prev</button>
                 <button class="px-3 py-1 border rounded" @click="next">Next</button>
               </div>
             </div>
-  
+
             <!-- Upload -->
             <div v-else class="flex flex-col items-center justify-center gap-4 py-10">
               <div
@@ -62,7 +64,7 @@
               <div v-if="uploading" class="text-sm text-gray-600">Uploading…</div>
             </div>
           </div>
-  
+
           <!-- Footer -->
           <div class="px-4 py-3 border-t flex items-center justify-between">
             <div class="text-sm text-gray-500">
@@ -80,12 +82,21 @@
         </div>
       </div>
     </div>
-  </template>
+  </Teleport>
+</template>
+
   
   <script setup>
   import { ref, watch } from 'vue'
   import _debounce from 'lodash.debounce'
   import { useMediaService } from '@/composables/useMediaService'
+
+  function applyNow(payload){
+  // emit apply and close (the parent portal will resolve the promise)
+    emit('apply', payload)
+    // also tell parent to close (same as clicking Close)
+    emit('close')
+  }
   
   const props = defineProps({
     open: { type: Boolean, default: false },
@@ -108,14 +119,23 @@
   const activeTab = 'px-3 py-2 rounded border bg-blue-600 text-white text-sm'
   
   function isSelected(m){ return !!selected.value.find(s => s.id === m.id) }
-  function toggle(m){
-    if (!props.multiple) selected.value = [m]
-    else {
-      const i = selected.value.findIndex(s => s.id === m.id)
-      i === -1 ? selected.value.push(m) : selected.value.splice(i, 1)
-    }
+
+function toggle(m){
+  if (!props.multiple) {
+    selected.value = [m]
+    // ✅ single-select: auto-apply immediately
+    applyNow(m)
+  } else {
+    const i = selected.value.findIndex(s => s.id === m.id)
+    i === -1 ? selected.value.push(m) : selected.value.splice(i, 1)
   }
-  function apply(){ emit('apply', props.multiple ? selected.value : (selected[0] || null)) }
+}
+  function apply(){
+    // existing “Use Selected” button still works for multi-select
+    emit('apply', props.multiple ? selected.value : (selected.value[0] || null))
+    emit('close')
+  }
+
   
   async function fetchList(rescan=false){
     const data = await listMedia({ q: q.value, page: page.value, pageSize, rescan })
@@ -146,6 +166,8 @@
       uploading.value = false
     }
   }
+
+  
   
   watch(() => props.open, (o) => {
     if (o) { tab.value = 'library'; page.value = 1; q.value = ''; selected.value = []; fetchList(false) }

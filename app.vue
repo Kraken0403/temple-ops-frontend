@@ -1,9 +1,5 @@
 <!-- app.vue -->
 <template>
-  <!-- 
-    NuxtLayout chooses the current layout (default or admin)
-    which in turn renders <NuxtPage/>
-  -->
   <NuxtLayout >
     <MediaPortal />
   </NuxtLayout>

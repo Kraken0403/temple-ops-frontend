@@ -1,134 +1,206 @@
-// File: composables/useEventsService.js
-
 import { useRuntimeConfig, useCookie } from '#app'
 
+/** Deeply remove disallowed keys and strip null/undefined values. */
+function sanitizeDeep(input, disallowedKeys = new Set(['imageUrl', 'imageURL', 'image_url'])) {
+  if (input === null || input === undefined) return undefined
+  if (typeof input !== 'object') return input
+  if (Array.isArray(input)) {
+    return input.map(v => sanitizeDeep(v, disallowedKeys)).filter(v => v !== undefined)
+  }
+  const out = {}
+  for (const [k, v] of Object.entries(input)) {
+    if (disallowedKeys.has(k)) continue
+    const sv = sanitizeDeep(v, disallowedKeys)
+    if (sv !== undefined) out[k] = sv
+  }
+  return out
+}
+
+/** Helpers to build minimal API payloads (no accidental spreads). */
+const toISO = (d) => (d ? new Date(d).toISOString() : undefined)
+const toISOTime = (dateStr, timeStr) => (timeStr ? new Date(`${dateStr}T${timeStr}`).toISOString() : undefined)
+
+function buildCreatePayload(form, uploaded) {
+  // normalize in-venue vs outside-venue
+  const isInVenue = !!form.isInVenue
+  const isOutsideVenue = !!form.isOutsideVenue
+
+  const body = {
+    name: String(form.name || '').trim(),
+    description: form.description || null,
+
+    // flags
+    isInVenue,
+    isOutsideVenue,
+
+    // venue fields
+    venueId: isInVenue ? (form.venueId != null ? Number(form.venueId) : null) : null,
+    venue:   isOutsideVenue ? String(form.venue || '').trim() : '',
+    mapLink: isOutsideVenue ? (form.mapLink || null) : null,
+
+    // times
+    date: toISO(form.date),
+    endDate: toISO(form.endDate),
+    startTime: toISOTime(form.date, form.startTime),
+    endTime: toISOTime(form.date, form.endTime),
+
+    // misc
+    tags: form.tags,
+    capacity: form.capacity != null ? Number(form.capacity) : undefined,
+    price: form.price != null ? Number(form.price) : undefined,
+    organizer: form.organizer || null,
+    contactInfo: form.contactInfo || null,
+    isPublic: typeof form.isPublic === 'boolean' ? form.isPublic : undefined,
+
+    // unified featured
+    featuredMediaId: form.featuredMediaId ?? (uploaded && uploaded.id) ?? undefined,
+    clearFeaturedMedia: form.clearFeaturedMedia ?? false,
+  }
+  return sanitizeDeep(body)
+}
+
+function buildUpdatePayload(form, uploaded) {
+  const has = (v) => v !== undefined
+  const isInVenue = form.isInVenue === true || (form.isInVenue !== false && form.venueId != null)
+  const isOutsideVenue = form.isOutsideVenue === true || (form.isOutsideVenue !== false && (form.venue || form.mapLink))
+
+  const body = {
+    name: form.name && form.name.trim ? form.name.trim() : form.name,
+    description: has(form.description) ? form.description : undefined,
+
+    // flags (only send when provided to avoid overwriting unintentionally)
+    isInVenue: typeof form.isInVenue === 'boolean' ? form.isInVenue : undefined,
+    isOutsideVenue: typeof form.isOutsideVenue === 'boolean' ? form.isOutsideVenue : undefined,
+
+    // venue (normalize according to current flags if provided)
+    venueId: (typeof form.isInVenue === 'boolean' && form.isInVenue)
+      ? (form.venueId != null ? Number(form.venueId) : null)
+      : (typeof form.venueId !== 'undefined' ? null : undefined),
+
+    venue: (typeof form.isOutsideVenue === 'boolean' && form.isOutsideVenue)
+      ? (form.venue && form.venue.trim ? form.venue.trim() : (form.venue ?? ''))
+      : (typeof form.venue !== 'undefined' ? '' : undefined),
+
+    mapLink: (typeof form.isOutsideVenue === 'boolean' && form.isOutsideVenue)
+      ? (has(form.mapLink) ? form.mapLink : undefined)
+      : (has(form.mapLink) ? null : undefined),
+
+    // times
+    date: toISO(form.date),
+    endDate: toISO(form.endDate),
+    startTime: toISOTime(form.date, form.startTime),
+    endTime: toISOTime(form.date, form.endTime),
+
+    // misc
+    tags: has(form.tags) ? form.tags : undefined,
+    capacity: form.capacity != null ? Number(form.capacity) : undefined,
+    price: form.price != null ? Number(form.price) : undefined,
+    organizer: has(form.organizer) ? form.organizer : undefined,
+    contactInfo: has(form.contactInfo) ? form.contactInfo : undefined,
+    isPublic: typeof form.isPublic === 'boolean' ? form.isPublic : undefined,
+
+    featuredMediaId: form.featuredMediaId ?? (uploaded && uploaded.id) ?? undefined,
+    clearFeaturedMedia: form.clearFeaturedMedia ?? false,
+  }
+
+  return sanitizeDeep(body)
+}
+
 export function useEventsService() {
-  const config = useRuntimeConfig().public
-  const token = useCookie('token').value
-  const base = config.apiBase
+  const { apiBase } = useRuntimeConfig().public
 
-  const jsonHeaders = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
+  const getHeaders = () => {
+    const t = useCookie('token').value
+    return { Authorization: t ? `Bearer ${t}` : '', 'Content-Type': 'application/json' }
   }
-
-  // 1️⃣ Upload image and get back { url }
-  const uploadPhoto = async (file) => {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    const res = await fetch(`${base}/events/upload-photo`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    })
-    if (!res.ok) throw new Error('Event image upload failed')
-    const { url } = await res.json()
-    return url
-  }
-
-  // 2️⃣ Create event (with optional image file)
-  const createEvent = async (form, file) => {
-    let imageUrl = form.imageUrl || null
-    if (file) {
-      imageUrl = await uploadPhoto(file)
-    }
-
-    const body = {
-      ...form,
-      imageUrl,
-      date: new Date(form.date).toISOString(),
-      endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
-      startTime: form.startTime
-        ? new Date(`${form.date}T${form.startTime}`).toISOString()
-        : undefined,
-      endTime: form.endTime
-        ? new Date(`${form.date}T${form.endTime}`).toISOString()
-        : undefined,
-      tags: form.tags,
-      capacity: form.capacity ? Number(form.capacity) : undefined,
-      price: form.price ? Number(form.price) : undefined,
-      currency: form.currency,
-      organizer: form.organizer,
-      contactInfo: form.contactInfo,
-      isPublic: Boolean(form.isPublic),
-    }
-
-    const res = await fetch(`${base}/events`, {
-      method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(body),
-    })
+  const safeJson = async (res) => { try { return await res.json() } catch { return null } }
+  const handle = async (res, msg) => {
     if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.message || 'Failed to create event')
+      const j = await safeJson(res)
+      throw new Error(j?.message || msg || 'Request failed')
     }
-    return res.json()
+    return safeJson(res)
   }
 
-  // 3️⃣ Update event (with optional new image file)
-  const updateEvent = async (id, form, file) => {
-    let imageUrl = form.imageUrl || null
-    if (file) {
-      imageUrl = await uploadPhoto(file)
-    }
+  /* ───────── Media (central library) ───────── */
+  const uploadAsset = async (file) => {
+    const t = useCookie('token').value
+    const headers = t ? { Authorization: `Bearer ${t}` } : {}
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch(`${apiBase}/media/upload`, { method: 'POST', headers, body: fd })
+    return handle(res, 'Event image upload failed') // -> { id, url, ... }
+  }
 
-    const body = {
-      ...form,
-      imageUrl,
-      date: new Date(form.date).toISOString(),
-      endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
-      startTime: form.startTime
-        ? new Date(`${form.date}T${form.startTime}`).toISOString()
-        : undefined,
-      endTime: form.endTime
-        ? new Date(`${form.date}T${form.endTime}`).toISOString()
-        : undefined,
-      tags: form.tags,
-      capacity: form.capacity ? Number(form.capacity) : undefined,
-      price: form.price ? Number(form.price) : undefined,
-      currency: form.currency,
-      organizer: form.organizer,
-      contactInfo: form.contactInfo,
-      isPublic: Boolean(form.isPublic),
-    }
-
-    const res = await fetch(`${base}/events/${id}`, {
+  // Gallery (controller uses 'event' singular)
+  const addToGallery = async (eventId, mediaIds = []) => {
+    const res = await fetch(`${apiBase}/events/${eventId}/gallery`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(sanitizeDeep({ mediaIds })),
+    })
+    return handle(res, 'Failed to add to gallery')
+  }
+  const reorderGallery = async (eventId, orders /* [{mediaId, sortOrder}] */) => {
+    const res = await fetch(`${apiBase}/events/${eventId}/gallery`, {
       method: 'PATCH',
-      headers: jsonHeaders,
+      headers: getHeaders(),
+      body: JSON.stringify(sanitizeDeep(orders)),
+    })
+    return handle(res, 'Failed to reorder gallery')
+  }
+  const removeFromGallery = async (eventId, mediaId) => {
+    const res = await fetch(`${apiBase}/events/${eventId}/gallery/${mediaId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    })
+    return handle(res, 'Failed to remove from gallery')
+  }
+
+  /* ───────── CRUD ───────── */
+  const createEvent = async (form, file) => {
+    const uploaded = file ? await uploadAsset(file) : null
+    const body = buildCreatePayload(form, uploaded)
+    const res = await fetch(`${apiBase}/events`, {
+      method: 'POST',
+      headers: getHeaders(),
       body: JSON.stringify(body),
     })
-    if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.message || 'Failed to update event')
-    }
-    return res.json()
+    return handle(res, 'Failed to create event')
   }
 
-  // 4️⃣ Standard CRUD
-  const fetchEvents = async () => {
-    const res = await fetch(`${base}/events`, { headers: jsonHeaders })
-    if (!res.ok) throw new Error('Failed to fetch events')
-    return res.json()
-  }
-
-  const getEventById = async (id) => {
-    const res = await fetch(`${base}/events/${id}`, { headers: jsonHeaders })
-    if (!res.ok) throw new Error(`Failed to fetch event ${id}`)
-    return res.json()
-  }
-
-  const deleteEvent = async (id) => {
-    const res = await fetch(`${base}/events/${id}`, {
-      method: 'DELETE',
-      headers: jsonHeaders,
+  const updateEvent = async (id, form, file) => {
+    const uploaded = file ? await uploadAsset(file) : null
+    const body = buildUpdatePayload(form, uploaded)
+    const res = await fetch(`${apiBase}/events/${id}`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify(body),
     })
-    if (!res.ok) throw new Error(`Failed to delete event ${id}`)
+    return handle(res, 'Failed to update event')
+  }
+
+  const fetchEvents = async () => {
+    const res = await fetch(`${apiBase}/events`, { headers: getHeaders() })
+    return handle(res, 'Failed to fetch events')
+  }
+  const getEventById = async (id) => {
+    const res = await fetch(`${apiBase}/events/${id}`, { headers: getHeaders() })
+    return handle(res, `Failed to fetch event ${id}`)
+  }
+  const deleteEvent = async (id) => {
+    const res = await fetch(`${apiBase}/events/${id}`, { method: 'DELETE', headers: getHeaders() })
+    await handle(res, `Failed to delete event ${id}`)
     return true
   }
 
   return {
-    uploadPhoto,
+    // media
+    uploadAsset,
+    addToGallery,
+    reorderGallery,
+    removeFromGallery,
+    // events
     createEvent,
     updateEvent,
     fetchEvents,

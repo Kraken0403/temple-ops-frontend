@@ -1,10 +1,8 @@
-// composables/usePriestService.js
 import { useRuntimeConfig, useCookie } from '#app'
 
 export const usePriestService = () => {
   const { apiBase } = useRuntimeConfig().public
 
-  // Always read the cookie when making a request (avoid stale token)
   const getHeaders = () => {
     const t = useCookie('token').value
     return {
@@ -13,182 +11,160 @@ export const usePriestService = () => {
     }
   }
 
-  const safeJson = async (res) => {
-    let data
-    try { data = await res.json() } catch { /* noop */ }
-    return data
+  const safeJson = async (res) => { try { return await res.json() } catch { return null } }
+  const handle = async (res, msg) => {
+    if (!res.ok) {
+      const j = await safeJson(res)
+      throw new Error(j?.message?.[0] || j?.message || msg || 'Request failed')
+    }
+    // always parse once
+    return safeJson(res)
   }
 
-  // ───────── Priests ─────────
+  /* ───────── Media helpers ───────── */
+  const uploadAsset = async (file) => {
+    const t = useCookie('token').value
+    const headers = t ? { Authorization: `Bearer ${t}` } : {}
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch(`${apiBase}/media/upload`, { method: 'POST', headers, body: fd })
+    return handle(res, 'Photo upload failed') // -> { id, url, filename, ... }
+  }
 
+  /* ───────── Priests ───────── */
   const fetchPriests = async () => {
     const res = await fetch(`${apiBase}/priest`, { headers: getHeaders() })
-    if (!res.ok) throw new Error('Failed to load priests')
-    return await res.json()
+    return handle(res, 'Failed to load priests')
   }
 
   const fetchPriest = async (id) => {
     const res = await fetch(`${apiBase}/priest/${id}`, { headers: getHeaders() })
-    if (!res.ok) throw new Error(`Failed to load priest with ID ${id}`)
-    return await res.json()
+    return handle(res, `Failed to load priest with ID ${id}`)
   }
 
-  const uploadPhoto = async (file) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch(`${apiBase}/priest/upload-photo`, {
-      method: 'POST',
-      headers: { Authorization: getHeaders().Authorization }, // no content-type for FormData
-      body: formData
-    })
-    if (!res.ok) throw new Error('Photo upload failed')
-    const data = await res.json()
-    return data.url
-  }
-
+  // Create: include featuredMediaId directly in body (backend supports it)
   const createPriest = async (form, file) => {
-    let photo = null
-    if (file) photo = await uploadPhoto(file)
+    let uploaded = null
+    if (file) uploaded = await uploadAsset(file)
+
     const body = {
-      ...form,
-      photo: photo ?? null,
+      name: String(form.name || '').trim(),
+      specialty: form.specialty?.trim?.() || null,
+      email: form.email?.trim?.() || null,
+      contactNo: form.contactNo?.trim?.() || null,
+      address: form.address?.trim?.() || null,
       qualifications: Array.isArray(form.qualifications)
         ? form.qualifications
-        : form.qualifications?.split(',').map(q => q.trim()) || [],
+        : (form.qualifications || '').split(',').map(q => q.trim()).filter(Boolean),
       languages: Array.isArray(form.languages)
         ? form.languages
-        : form.languages?.split(',').map(l => l.trim()) || []
+        : (form.languages || '').split(',').map(l => l.trim()).filter(Boolean),
+      featuredMediaId: form.featuredMediaId ?? uploaded?.id ?? undefined,
+      clearFeaturedMedia: form.clearFeaturedMedia ?? false,
     }
+
     const res = await fetch(`${apiBase}/priest`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     })
-    if (!res.ok) {
-      const err = await safeJson(res)
-      throw new Error(err?.message?.[0] || 'Failed to create priest')
-    }
-    return await res.json()
+    return handle(res, 'Failed to create priest')
   }
 
+  // Update: same idea
   const updatePriest = async (id, form, file) => {
-    let photo = form.photo || null
-    if (file) photo = await uploadPhoto(file)
+    let uploaded = null
+    if (file) uploaded = await uploadAsset(file)
+
     const body = {
-      ...form,
-      photo,
+      name: form.name?.trim?.(),
+      specialty: form.specialty?.trim?.(),
+      email: form.email?.trim?.(),
+      contactNo: form.contactNo?.trim?.(),
+      address: form.address?.trim?.(),
       qualifications: Array.isArray(form.qualifications)
         ? form.qualifications
-        : form.qualifications?.split(',').map(q => q.trim()) || [],
+        : (form.qualifications || '').split(',').map(q => q.trim()).filter(Boolean),
       languages: Array.isArray(form.languages)
         ? form.languages
-        : form.languages?.split(',').map(l => l.trim()) || []
+        : (form.languages || '').split(',').map(l => l.trim()).filter(Boolean),
+      featuredMediaId: form.featuredMediaId ?? uploaded?.id ?? undefined,
+      clearFeaturedMedia: form.clearFeaturedMedia ?? false,
     }
+
     const res = await fetch(`${apiBase}/priest/${id}`, {
       method: 'PATCH',
       headers: getHeaders(),
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     })
-    if (!res.ok) {
-      const err = await safeJson(res)
-      throw new Error(err?.message?.[0] || 'Failed to update priest')
-    }
-    return await res.json()
+    return handle(res, 'Failed to update priest')
   }
 
-  // ───────── Slots ─────────
-
+  /* ───────── Slots ───────── */
   const fetchSlots = async (priestId) => {
     const res = await fetch(`${apiBase}/priest/${priestId}/slots`, { headers: getHeaders() })
-    if (!res.ok) throw new Error('Failed to load slots')
-    return await res.json()
+    return handle(res, 'Failed to load slots')
   }
 
   const createSlot = async (data) => {
     const res = await fetch(`${apiBase}/priest/slot`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     })
-    if (!res.ok) {
-      let errorText
-      try { errorText = (await res.json())?.message || await res.text() } catch { errorText = await res.text() }
-      console.error('❌ Slot creation failed:', res.status, errorText)
-      throw new Error(errorText || 'Slot creation failed')
-    }
-    return await res.json()
+    return handle(res, 'Slot creation failed')
   }
 
   const getSlotsByPriest = async (priestId) => {
     const res = await fetch(`${apiBase}/priest/${priestId}/slots`, { headers: getHeaders() })
-    if (!res.ok) throw new Error('Failed to fetch slots')
-    return await res.json()
+    return handle(res, 'Failed to fetch slots')
   }
 
   const deleteSlot = async (slotId) => {
     const res = await fetch(`${apiBase}/priest/slot/${slotId}`, {
       method: 'DELETE',
-      headers: getHeaders()
+      headers: getHeaders(),
     })
-    if (!res.ok) throw new Error('Failed to delete slot')
-    return await res.json()
+    return handle(res, 'Failed to delete slot')
   }
 
   const getAvailabilityForMultiplePriests = async (priestIds = []) => {
-    const allSlots = []
+    const all = []
     for (const id of priestIds) {
       try {
         const res = await fetch(`${apiBase}/priest/${id}/slots`, { headers: getHeaders() })
         if (res.ok) {
           const slots = await res.json()
-          allSlots.push(...slots.filter(s => !s.disabled))
+          all.push(...slots.filter(s => !s.disabled))
         }
-      } catch (err) {
-        console.error(`❌ Failed to fetch slots for priest ${id}`, err)
-      }
+      } catch {}
     }
-    return allSlots
+    return all
   }
 
-  // ✅ FIXED: correct param names + auth header
-// composables/usePriestService.js
-const getAvailableChunks = async (priestId, bookingDate /* 'YYYY-MM-DD' */, totalMinutes) => {
-  const { public: { apiBase } } = useRuntimeConfig()
-  const token = useCookie('token').value
-  const headers = {
-    Authorization: token ? `Bearer ${token}` : '',
-    'Content-Type': 'application/json'
+  const getAvailableChunks = async (priestId, bookingDate /* 'YYYY-MM-DD' */, totalMinutes) => {
+    const url = new URL(`${apiBase}/priest/${encodeURIComponent(priestId)}/available-chunks`)
+    url.searchParams.set('date', bookingDate)
+    url.searchParams.set('duration', String(totalMinutes))
+    const res = await fetch(url.toString(), { headers: getHeaders() })
+    if (!res.ok) throw new Error(`Failed to load available chunks (${res.status})`)
+    return res.json().catch(() => [])
   }
-
-  const url = new URL(`${apiBase}/priest/${encodeURIComponent(priestId)}/available-chunks`)
-  url.searchParams.set('date', bookingDate)                 // <-- controller expects 'date'
-  url.searchParams.set('duration', String(totalMinutes))    // <-- and 'duration'
-
-  console.debug('[chunks] GET', url.toString())
-
-  const res = await fetch(url.toString(), { headers })
-  const text = await res.text().catch(() => '')
-  if (!res.ok) {
-    console.error('[chunks] HTTP', res.status, text)
-    throw new Error(`Failed to load available chunks (${res.status})`)
-  }
-
-  try { return JSON.parse(text) } catch { return [] }
-}
-
-  
 
   return {
+    // media
+    uploadAsset,
+    // priests
     fetchPriests,
     fetchPriest,
-    uploadPhoto,
     createPriest,
     updatePriest,
+    // slots
     fetchSlots,
     createSlot,
     getSlotsByPriest,
     deleteSlot,
     getAvailabilityForMultiplePriests,
-    getAvailableChunks
+    getAvailableChunks,
   }
 }

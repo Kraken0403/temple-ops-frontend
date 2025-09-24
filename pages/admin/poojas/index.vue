@@ -3,7 +3,7 @@
     <UtilsBar
       title="Services List"
       buttonLabel="Add New Service"
-      @action="toggleModal"
+      @action="openCreate"
     />
 
     <!-- Error -->
@@ -24,8 +24,8 @@
           <!-- Image -->
           <div class="w-24 h-24 flex-shrink-0 rounded bg-gray-100 overflow-hidden border border-gray-400">
             <img
-              v-if="p.photoUrl"
-              :src="config.apiBase + p.photoUrl"
+              v-if="imageSrc(p)"
+              :src="imageSrc(p)"
               alt="Pooja Image"
               class="w-full h-full object-cover"
             />
@@ -71,7 +71,7 @@
             </div>
           </button>
           <button
-            @click.stop="deletePooja(p.id)"
+            @click.stop="onDelete(p.id)"
             class="text-red-600 hover:text-red-800 flex items-center"
           >
             <div class="icon-wrapper rounded-full border border-gray-400 flex justify-center items-center">
@@ -82,368 +82,93 @@
       </NuxtLink>
     </div>
 
-    <!-- Modal -->
-    <transition name="fade">
-    <div
+    <!-- Add/Edit Modal -->
+    <AddEditPoojaModal
       v-if="showModal"
-      class="fixed inset-0 z-50 flex items-start justify-center bg-black/50"
-    >
-      <div class="bg-white rounded-lg shadow-lg w-full max-w-lg mx-4 h-screen flex flex-col">
-        <!-- Header -->
-        <div class="px-6 py-4 border-b border-1 border-[#ccc] flex justify-between items-center bg-[#f5f5f5]">
-          <h3 class="text-[18px] font-semibold text-gray-800">Create New Pooja</h3>
-          <button @click="toggleModal" class="text-gray-500 cursor-pointer hover:text-gray-700">
-            <i class="material-icons">close</i>
-          </button>
-        </div>
-
-        <!-- Scrollable Body -->
-        <div class="px-6 py-4 overflow-auto flex-1">
-          <form @submit.prevent="submitForm" class="space-y-6">
-            <!-- Name -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input
-                v-model="form.name"
-                required
-                placeholder="e.g. Ganesh Puja"
-                class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600 text-base text-gray-900"
-              />
-            </div>
-            <!-- Photo -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Photo</label>
-              <div class="flex items-end space-x-4">
-                <!-- Preview box -->
-                <div
-                  class="w-32 h-32 bg-[#f5f5f5] border border-[#ccc] rounded flex items-center justify-center overflow-hidden"
-                >
-                  <span v-if="!previewUrl" class="text-gray-400">No image</span>
-                  <img
-                    v-else
-                    :src="previewUrl"
-                    alt="Preview"
-                    class="object-cover w-full h-full"
-                  />
-                </div>
-
-                <!-- Browse button -->
-                <label
-                  class="px-4 py-2 bg-green-600 text-white rounded cursor-pointer hover:bg-green-700"
-                >
-                  Browse…
-                  <input
-                    type="file"
-                    accept="image/*"
-                    @change="onFileChange"
-                    class="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <!-- Priests -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Priests</label>
-              <select
-                v-model="form.priestIds"
-                multiple
-                class="w-full p-2 h-32 border border-gray-300 rounded focus:ring-0 focus:border-green-600 text-base text-gray-900"
-              >
-                <option v-for="pr in priests" :key="pr.id" :value="pr.id">
-                  {{ pr.name }}
-                </option>
-              </select>
-            </div>
-            <!-- Amount & Currency -->
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                <input
-                  v-model.number="form.amount"
-                  type="number"
-                  class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                <input
-                  :value="settings"
-                  readonly
-                  disabled
-                  class="w-full p-2 border bg-[#cccccc] border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-            </div>
-            <!-- Venue checkboxes -->
-            <div class="flex items-center space-x-6">
-              <label class="inline-flex items-center">
-                <input v-model="form.isInVenue" type="checkbox" class="form-checkbox h-5 w-5 text-green-600" />
-                <span class="ml-2 text-gray-700">In Venue</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input v-model="form.isOutsideVenue" type="checkbox" class="form-checkbox h-5 w-5 text-green-600" />
-                <span class="ml-2 text-gray-700">Outside Venue</span>
-              </label>
-            </div>
-            <!-- Conditional Fields -->
-            <div v-if="form.isInVenue" class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  v-model="form.date"
-                  type="date"
-                  class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                <input
-                  v-model="form.time"
-                  type="time"
-                  class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-              <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Venue Address</label>
-                <input
-                  v-model="form.venueAddress"
-                  class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-              <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Map Link</label>
-                <input
-                  v-model="form.mapLink"
-                  class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-            </div>
-            <div v-if="form.isOutsideVenue">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Allowed Zones (comma-sep)</label>
-              <input
-                v-model="form.allowedZones"
-                class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-              />
-            </div>
-            <!-- Duration, Prep, Buffer -->
-            <div class="grid grid-cols-3 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Duration (min)</label>
-                <input
-                  v-model.number="form.durationMin"
-                  type="number"
-                  class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Prep Time (min)</label>
-                <input
-                  v-model.number="form.prepTimeMin"
-                  type="number"
-                  class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Buffer (min)</label>
-                <input
-                  v-model.number="form.bufferMin"
-                  type="number"
-                  class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                />
-              </div>
-            </div>
-            
-            <!-- Toggles -->
-            <div class="flex items-center space-x-6">
-              <label class="inline-flex items-center">
-                <input v-model="form.includeFood" type="checkbox" class="form-checkbox h-5 w-5 text-green-600" />
-                <span class="ml-2 text-gray-700">Include Food</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input v-model="form.includeHall" type="checkbox" class="form-checkbox h-5 w-5 text-green-600" />
-                <span class="ml-2 text-gray-700">Include Hall</span>
-              </label>
-            </div>
-            <!-- Materials & Notes -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Materials</label>
-              <textarea
-                v-model="form.materials"
-                rows="3"
-                class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-              ></textarea>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <textarea
-                v-model="form.notes"
-                rows="3"
-                class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-              ></textarea>
-            </div>
-          </form>
-        </div>
-
-        <!-- Fixed Footer Actions -->
-        <div class="px-6 py-4 border-t border-1 border-[#ccc] bg-[#f5f5f5] flex justify-end space-x-3">
-          <button
-            type="button"
-            @click="toggleModal"
-            class="px-4 py-2 text-gray-700 hover:text-gray-900 cursor-pointer "
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            @click="submitForm"
-            class="px-4 py-2 cursor-pointer bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-  </transition>
+      :pooja="null"
+      :settingsCurrency="settings"
+      @close="showModal = false"
+      @created="onCreated"
+    />
   </div>
 </template>
 
-  
-  <script setup>
-  definePageMeta({ layout: 'admin', middleware: 'auth' })
-  
-  import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
-  import { useCookie, useRouter, useRoute, useRuntimeConfig  } from '#app'
-  import UtilsBar from '~/components/UtilsBar.vue'
-  import { useSettingsService } from '~/composables/useSettingsService'
-  import { usePoojaService } from '~/composables/usePoojaService'
-  import { usePriestService } from '~/composables/usePriestService'
+<script setup>
+definePageMeta({ layout: 'admin', middleware: 'auth' })
 
-  const config = useRuntimeConfig().public
+import { ref, onMounted } from 'vue'
+import { useRouter, useRuntimeConfig } from '#app'
+import UtilsBar from '~/components/UtilsBar.vue'
+import AddEditPoojaModal from '@/components/poojas/AddEditPoojaModal.vue'
+import { useSettingsService } from '~/composables/useSettingsService'
+import { usePoojaService } from '~/composables/usePoojaService'
+import { usePriestService } from '~/composables/usePriestService' // only for error aggregation
+import { useMediaService } from '~/composables/useMediaService'   // ✅ for fullUrl + cache-busting
 
-  const { getSettings } = useSettingsService()
+const config = useRuntimeConfig().public
+const router = useRouter()
 
+const { getSettings } = useSettingsService()
+const { fetchPoojas, deletePooja } = usePoojaService()
+const { fetchPriests } = usePriestService() // not used directly; keeps your old error check
+const { fullUrl } = useMediaService()       // ✅
 
-  const previewUrl = ref(null)
+const poojas = ref([])
+const settings = ref('INR')
+const poojaError = ref(null)
+const priestError = ref(null)
+const showModal = ref(false)
 
-  const settings    = ref('')
+/** Prefer featured media; fallback to legacy photoUrl. */
+function imageSrc(p) {
+  const rel =
+    p?.featuredMedia?.url ||
+    p?.featuredMedia?.path ||
+    p?.photoUrl ||
+    null
+  if (!rel) return ''
 
-  // const token = useCookie('token').value
-  const router = useRouter()
-  const { fetchPoojas, createPooja } = usePoojaService()
-  const { fetchPriests } = usePriestService()
-  
-  const poojas = ref([])
-  const priests = ref([])
-  const poojaError = ref(null)
-  const priestError = ref(null)
-  
-  const showModal = ref(false)
-  const photoFile = ref(null)
-  
-  const form = reactive({
-    name: '', 
-    priestIds: [], 
-    amount: 0,
-    date: '',
-    time: '', 
-    durationMin: 60, 
-    prepTimeMin: 0,
-    bufferMin: 0, 
-    isInVenue: true, 
-    isOutsideVenue: false,
-    venueAddress: '', 
-    mapLink: '', 
-    allowedZones: '',
-    includeFood: false, 
-    includeHall: false,
-    materials: '', notes: ''
-  })
-  
-  function toggleModal() {
-    showModal.value = !showModal.value
+  const base = fullUrl(rel)
+  const ver =
+    p?.featuredMedia?.updatedAt ||
+    p?.updatedAt ||
+    Date.now()
+  return `${base}${base.includes('?') ? '&' : '?'}v=${encodeURIComponent(ver)}`
+}
+
+function goToPooja(id) { router.push(`/admin/poojas/${id}`) }
+
+async function load() {
+  try {
+    const s = await getSettings()
+    settings.value = s?.currency || 'INR'
+  } catch { settings.value = 'INR' }
+
+  try { poojas.value = await fetchPoojas() } catch (e) { poojaError.value = e }
+  // preserve your old "priestError" banner logic
+  try { await fetchPriests() } catch (e) { priestError.value = e }
+}
+
+function openCreate() { showModal.value = true }
+async function onCreated() { showModal.value = false; await load() }
+
+async function onDelete(id) {
+  if (!confirm('Delete this pooja?')) return
+  try {
+    await deletePooja(id)
+    poojas.value = poojas.value.filter(p => p.id !== id)
+  } catch (e) {
+    console.error('Delete error:', e)
+    alert(e?.message || 'Failed to delete pooja')
   }
-  
-  function onFileChange(event) {
-  // 1) actually pull the File out into a variable
-      const file = event.target.files[0]
-      if (!file) return
+}
 
-      // 2) store it for upload
-      photoFile.value = file
-
-      // 3) revoke any old URL, then create a new preview
-      if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-      previewUrl.value = URL.createObjectURL(file)
-  }
-  
-  function goToPooja(id) {
-    router.push(`/admin/poojas/${id}`)
-  }
-  
-  onMounted(async () => {
-    try {
-      const s = await getSettings()
-      settings.value = s.currency
-    } catch (e) {
-      console.error('Could not load settings:', e)
-      settings.value = 'INR'
-    }
-
-    try {
-      priests.value = await fetchPriests()
-    } catch (e) {
-      priestError.value = e
-    }
-  
-    try {
-      poojas.value = await fetchPoojas()
-    } catch (e) {
-      poojaError.value = e
-    }
-  })
-
-  function onPhotoFileChange(event) {
-    const file = event.target.files[0]
-    if (!file) return
-    // keep the file in your form state too:
-    form.photo = file
-    // create a temporary URL for preview:
-    previewUrl.value = URL.createObjectURL(file)
-  }
-
-  onBeforeUnmount(() => {
-    if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  })
-  
-  async function submitForm() {
-    try {
-      await createPooja(form, photoFile.value)
-      toggleModal()
-      poojas.value = await fetchPoojas()
-      Object.assign(form, {
-        name: '', priestIds: [], amount: 0,
-        date: '', time: '', durationMin: 60, prepTimeMin: 0,
-        bufferMin: 0, isInVenue: true, isOutsideVenue: false,
-        venueAddress: '', mapLink: '', allowedZones: '',
-        includeFood: false, includeHall: false,
-        materials: '', notes: ''
-      })
-      photoFile.value = null
-    } catch (err) {
-      console.error('Create error:', err.message)
-    }
-  }
-  </script>
+onMounted(load)
+</script>
 
 <style scoped>
-.icon-wrapper {
-  width: 35px;
-  height: 35px;
-  cursor: pointer;
-}
-
-.material-icons {
-  font-size: 18px;
-}
+.icon-wrapper { width: 35px; height: 35px; cursor: pointer; }
+.material-icons { font-size: 18px; }
+.fade-enter-active, .fade-leave-active { transition: opacity .15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

@@ -1,7 +1,10 @@
 <template>
   <section class="py-10 max-w-xl mx-auto">
-    <Stepper :steps="labels" :current-step="currentStep" />
+    <Stepper v-if="labels.length" :steps="labels" :current-step="currentStep" />
+
+    <!-- Guard so we never render an undefined component -->
     <component
+      v-if="pooja && steps.length && steps[currentStep]"
       :is="steps[currentStep]"
       :pooja="pooja"
       :selectedSlot="selectedSlot"
@@ -13,11 +16,14 @@
       @next="handleNext"
       @goBack="handleBack"
     />
+
+    <!-- Optional tiny fallback while loading -->
+    <div v-else class="text-center text-gray-500">Loading…</div>
   </section>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePoojaService } from '@/composables/usePoojaService'
 
@@ -44,32 +50,41 @@ const allSteps = [
   StepConfirmPayment
 ]
 
-// Only include StepVenueDetails if pooja is outside venue
+// Should we include the venue step?
+const needsVenueStep = computed(() => {
+  const p = pooja.value
+  if (!p) return false
+  // For Pooja, there is NO `venue` string; only `venueId`/`venueRel`
+  const hasTempleVenue = !!(p.venueRel || p.venueId)
+  // Show the step if: outside-venue is allowed OR (in-venue is allowed AND a temple venue is assigned)
+  return p.isOutsideVenue || (p.isInVenue && hasTempleVenue)
+})
+
 const steps = computed(() => {
   if (!pooja.value) return []
-  return pooja.value.isOutsideVenue
+  return needsVenueStep.value
     ? allSteps
     : [StepSlotSelection, StepUserDetails, StepConfirmPayment]
 })
 
 const labels = computed(() => {
   if (!pooja.value) return []
-  return pooja.value.isOutsideVenue
+  return needsVenueStep.value
     ? ['Select Slot','Venue Details','Your Details','Review']
     : ['Select Slot','Your Details','Review']
 })
 
-const handleNext = () => {
-  if (currentStep.value < steps.value.length - 1) {
-    currentStep.value++
-  }
+function handleNext() {
+  if (currentStep.value < steps.value.length - 1) currentStep.value++
+}
+function handleBack() {
+  if (currentStep.value > 0) currentStep.value--
 }
 
-const handleBack = () => {
-  if (currentStep.value > 0) {
-    currentStep.value--
-  }
-}
+// Keep index valid whenever steps change
+watch(steps, (arr) => {
+  if (currentStep.value > arr.length - 1) currentStep.value = 0
+})
 
 onMounted(async () => {
   const id = route.query.poojaId

@@ -9,8 +9,9 @@
 </template>
 
 <script setup>
-import { useMediaPickerStore } from '@/stores/mediaPicker'
+import { useMediaStore } from '@/stores/useMediaStore'   // ✅ same store as caller
 import MediaModal from '@/components/media/MediaModal.vue'
-const store = useMediaPickerStore()
+
+const store = useMediaStore()
 function onApply(selection){ store.apply(selection) }
 </script>

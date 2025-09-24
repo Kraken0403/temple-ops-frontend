@@ -3,24 +3,19 @@
     <div class="mx-auto w-full bg-white rounded-lg shadow">
       <!-- Back + Actions -->
       <div class="px-6 py-4 flex items-center justify-between">
-        <NuxtLink to="/admin/priests" class="text-blue-600 hover:underline">
-          ← Back to list
-        </NuxtLink>
-
+        <NuxtLink to="/admin/priests" class="text-blue-600 hover:underline">← Back to list</NuxtLink>
         <button
           v-if="!loading && priest"
-          @click="openEdit()"
+          @click="openEdit"
           class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Edit Priest
         </button>
       </div>
 
-      <!-- Loading / Error -->
       <div v-if="error" class="p-6 text-center text-red-600">Error loading priest</div>
       <div v-else-if="loading" class="p-6 text-center text-gray-600">Loading...</div>
 
-      <!-- Details -->
       <div v-else class="md:flex">
         <!-- Left: Info -->
         <div class="md:w-2/3 p-6">
@@ -32,15 +27,11 @@
             </div>
             <div>
               <h3 class="text-sm font-semibold text-gray-500">Languages</h3>
-              <p class="mt-1 text-gray-800">
-                {{ (priest.languages || []).join(', ') || '—' }}
-              </p>
+              <p class="mt-1 text-gray-800">{{ (priest.languages || []).join(', ') || '—' }}</p>
             </div>
             <div>
               <h3 class="text-sm font-semibold text-gray-500">Qualifications</h3>
-              <p class="mt-1 text-gray-800">
-                {{ (priest.qualifications || []).join(', ') || '—' }}
-              </p>
+              <p class="mt-1 text-gray-800">{{ (priest.qualifications || []).join(', ') || '—' }}</p>
             </div>
             <div>
               <h3 class="text-sm font-semibold text-gray-500">Email</h3>
@@ -58,33 +49,25 @@
         </div>
 
         <!-- Right: Photo -->
-        <div
-          class="md:w-1/3 p-6 border-t md:border-t-0 md:border-l border-gray-200 flex items-center justify-center"
-        >
+        <div class="md:w-1/3 p-6 border-t md:border-t-0 md:border-l border-gray-200 flex items-center justify-center">
           <img
-            v-if="priest.photo"
-            :src="fullPhotoUrl(priest.photo)"
+            v-if="imageSrc(priest)"
+            :src="imageSrc(priest)"
             alt="Priest photo"
-            class="rounded-lg max-h-[400px] object-cover"
+            class="rounded-lg max-h-[400px] object-cover w-full"
             @error="onImgError"
           />
-          <div
-            v-else
-            class="w-full h-[400px] bg-gray-100 flex items-center justify-center text-gray-400"
-          >
+          <div v-else class="w-full h-[400px] bg-gray-100 flex items-center justify-center text-gray-400">
             No Image
           </div>
         </div>
       </div>
 
-      <!-- Slots Section -->
+      <!-- Slots -->
       <div v-if="!loading" class="p-6 border-t border-gray-200">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-2xl font-semibold">Available Slots</h2>
-          <button
-            @click="showSlotModal = true"
-            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
+          <button @click="showSlotModal = true" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             Add Slot
           </button>
         </div>
@@ -96,15 +79,10 @@
             class="flex items-center justify-between p-4 border border-gray-200 rounded"
           >
             <div class="flex items-center space-x-4">
-              <!-- Days or Date -->
               <span class="text-sm text-gray-600 font-medium">
                 {{ slot.daysOfWeek?.length ? slot.daysOfWeek.join(', ') : formatDate(slot.date) }}
               </span>
-              <!-- Time Range -->
-              <span class="font-medium">
-                {{ formatTime(slot.start) }} → {{ formatTime(slot.end) }}
-              </span>
-              <!-- Type Pill -->
+              <span class="font-medium">{{ formatTime(slot.start) }} → {{ formatTime(slot.end) }}</span>
               <span
                 class="px-2 py-1 text-sm rounded text-white"
                 :class="{
@@ -112,18 +90,9 @@
                   'bg-red-600':   slot.type === 'BUSY',
                   'bg-gray-600':  slot.type === 'HOLIDAY'
                 }"
-              >
-                {{ slot.type }}
-              </span>
+              >{{ slot.type }}</span>
             </div>
-
-            <!-- Delete -->
-            <button
-              @click="removeSlot(slot.id)"
-              class="text-red-600 hover:underline"
-            >
-              Delete
-            </button>
+            <button @click="removeSlot(slot.id)" class="text-red-600 hover:underline">Delete</button>
           </li>
         </ul>
 
@@ -139,101 +108,14 @@
       @created="reloadData"
     />
 
-    <!-- Edit Priest Modal -->
-    <div
-      v-if="showEdit"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    >
-      <div class="bg-white w-full max-w-2xl rounded-lg shadow-lg">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b">
-          <h3 class="text-xl font-semibold">Edit Priest</h3>
-          <button @click="closeEdit" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
-        </div>
+    <!-- Reuse AddPriestModal for EDIT (gallery included) -->
+    <AddPriestModal
+      v-if="showEdit && priest"
+      :priest="priest"
+      @close="closeEdit"
+      @updated="onEdited"
+    />
 
-        <!-- Form -->
-        <form @submit.prevent="submitEdit" class="p-6 space-y-6">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input v-model.trim="editForm.name" required placeholder="Full name" class="w-full p-2 border border-gray-300 rounded" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
-              <input v-model.trim="editForm.specialty" placeholder="e.g. Vedic rituals" class="w-full p-2 border border-gray-300 rounded" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input v-model.trim="editForm.email" type="email" placeholder="name@example.com" class="w-full p-2 border border-gray-300 rounded" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Contact No.</label>
-              <input v-model.trim="editForm.contactNo" placeholder="+1 555…" class="w-full p-2 border border-gray-300 rounded" />
-            </div>
-
-            <div class="col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-              <input v-model.trim="editForm.address" placeholder="Address" class="w-full p-2 border border-gray-300 rounded" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Languages (comma separated)</label>
-              <input v-model.trim="editForm.languages" placeholder="Sanskrit, Hindi, English" class="w-full p-2 border border-gray-300 rounded" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Qualifications (comma separated)</label>
-              <input v-model.trim="editForm.qualifications" placeholder="Acharya, Purohit" class="w-full p-2 border border-gray-300 rounded" />
-            </div>
-
-            <!-- Photo -->
-            <div class="col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Photo</label>
-              <div class="flex items-end space-x-4">
-                <div class="w-32 h-32 bg-[#f5f5f5] border border-[#ccc] rounded flex items-center justify-center overflow-hidden">
-                  <span v-if="!photoPreview" class="text-gray-400">No image</span>
-                  <img v-else :src="photoPreview" class="object-cover w-full h-full" />
-                </div>
-                <label class="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700">
-                  Browse…
-                  <input type="file" accept="image/*" @change="onPhotoChange" class="hidden" />
-                </label>
-                <button
-                  v-if="photoPreview && !!editForm.photo"
-                  type="button"
-                  class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
-                  @click="clearPhotoSelection"
-                >
-                  Clear
-                </button>
-              </div>
-              <p v-if="editForm.photo && !newPhotoFile" class="text-xs text-gray-500 mt-1">
-                Current: {{ editForm.photo }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="flex items-center justify-end gap-3 pt-2">
-            <button type="button" @click="closeEdit" class="px-4 py-2 rounded border bg-white hover:bg-gray-50">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="saving"
-              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-            >
-              {{ saving ? 'Saving…' : 'Save Changes' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Notifications -->
     <transition name="fade">
       <div
         v-if="notification.visible"
@@ -250,42 +132,26 @@
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 
 import { ref, onMounted } from 'vue'
-import { useRoute, useRuntimeConfig } from '#app'
+import { useRoute } from '#app'
 import { usePriestService } from '@/composables/usePriestService'
 import { useNotification } from '@/composables/useNotification'
+import { useMediaService } from '@/composables/useMediaService'
+
 import AddSlotModal from '@/components/priest/AddSlotModal.vue'
+import AddPriestModal from '@/components/priest/AddPriestModal.vue'
 
 const route = useRoute()
-const config = useRuntimeConfig().public
-const { fetchPriest, deleteSlot, updatePriest } = usePriestService()
+const { fetchPriest, deleteSlot } = usePriestService()
 const { notification, showNotification } = useNotification()
+const { fullUrl } = useMediaService()
 
 const priest = ref(null)
 const loading = ref(true)
 const error = ref(false)
 const showSlotModal = ref(false)
 
-/* ---- Edit modal state ---- */
 const showEdit = ref(false)
-const saving = ref(false)
-const editForm = ref({
-  name: '',
-  specialty: '',
-  email: '',
-  contactNo: '',
-  address: '',
-  languages: '',
-  qualifications: '',
-  photo: null, // path from server if exists
-})
-const newPhotoFile = ref(null)
-const photoPreview = ref('')
 
-function fullPhotoUrl(path) {
-  return path?.startsWith('http') ? path : `${config.apiBase}${path}`
-}
-
-/* Load data */
 async function reloadData() {
   loading.value = true
   error.value = false
@@ -302,21 +168,15 @@ async function reloadData() {
 
 onMounted(reloadData)
 
-/* Formatting helpers */
 function formatDate(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric'
-  })
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 function formatTime(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('en-IN', {
-    hour: '2-digit', minute: '2-digit'
-  })
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 }
 
-/* Slots */
 async function removeSlot(slotId) {
   try {
     await deleteSlot(slotId)
@@ -328,63 +188,27 @@ async function removeSlot(slotId) {
   }
 }
 
-/* ---- Edit modal handlers ---- */
 function openEdit() {
   if (!priest.value) return
-  // seed form
-  editForm.value = {
-    name: priest.value.name || '',
-    specialty: priest.value.specialty || '',
-    email: priest.value.email || '',
-    contactNo: priest.value.contactNo || '',
-    address: priest.value.address || '',
-    languages: (priest.value.languages || []).join(', '),
-    qualifications: (priest.value.qualifications || []).join(', '),
-    photo: priest.value.photo || null
-  }
-  newPhotoFile.value = null
-  photoPreview.value = editForm.value.photo ? fullPhotoUrl(editForm.value.photo) : ''
   showEdit.value = true
 }
-
 function closeEdit() {
-  if (saving.value) return
+  showEdit.value = false
+}
+async function onEdited() {
+  await reloadData()
+  showNotification('Priest updated successfully', 'success')
   showEdit.value = false
 }
 
-function onPhotoChange(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  newPhotoFile.value = file
-  photoPreview.value = URL.createObjectURL(file)
+function imageSrc(p) {
+  const rel = p?.featuredMedia?.url || p?.featuredMedia?.path || null
+  if (!rel) return ''
+  const base = fullUrl(rel)
+  const ver  = p?.featuredMedia?.updatedAt || p?.updatedAt || Date.now()
+  return `${base}${base.includes('?') ? '&' : '?'}v=${encodeURIComponent(ver)}`
 }
-function clearPhotoSelection() {
-  newPhotoFile.value = null
-  photoPreview.value = editForm.value.photo ? fullPhotoUrl(editForm.value.photo) : ''
-}
-
-async function submitEdit() {
-  if (!editForm.value.name.trim()) {
-    showNotification('Name is required', 'error')
-    return
-  }
-  saving.value = true
-  try {
-    await updatePriest(Number(route.params.id), { ...editForm.value }, newPhotoFile.value || null)
-    await reloadData()
-    showNotification('Priest updated successfully', 'success')
-    showEdit.value = false
-  } catch (e) {
-    console.error(e)
-    showNotification(e.message || 'Failed to update priest', 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-function onImgError(e) {
-  console.error('Image failed to load:', e?.target?.src)
-}
+function onImgError(e) { console.error('Image failed to load:', e?.target?.src) }
 </script>
 
 <style scoped>

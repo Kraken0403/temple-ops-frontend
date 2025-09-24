@@ -13,15 +13,12 @@
       <div class="w-full">
         <div class="relative overflow-hidden rounded-xl bg-gray-100 shadow">
           <img
-            v-if="pooja.photoUrl"
-            :src="fullUrl(pooja.photoUrl)"
+            v-if="heroSrc"
+            :src="heroSrc"
             :alt="pooja.name"
             class="w-full h-[380px] object-cover"
           />
-          <div
-            v-else
-            class="w-full h-[380px] flex items-center justify-center text-gray-400"
-          >
+          <div v-else class="w-full h-[380px] flex items-center justify-center text-gray-400">
             No Image
           </div>
         </div>
@@ -32,7 +29,6 @@
         <!-- Title & Price -->
         <div class="space-y-2">
           <h1 class="text-3xl font-bold text-gray-900">{{ pooja.name }}</h1>
-          <!-- Highlighted Price -->
           <div class="text-2xl font-semibold text-[#570000]">
             {{ formatMoney(pooja.amount, settingsCurrency) }}
           </div>
@@ -91,7 +87,21 @@
           <p class="whitespace-pre-line">{{ pooja.description }}</p>
         </div>
 
-        <!-- Venue (only if inside temple) -->
+        <!-- Categories -->
+        <div v-if="pooja.categories?.length" class="border rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Categories</h3>
+          <div class="flex flex-wrap gap-2">
+            <span
+              v-for="c in pooja.categories"
+              :key="c.id"
+              class="inline-flex px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-sm"
+            >
+              {{ c.name }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Venue (public display: if you store a public address for in-venue) -->
         <div v-if="pooja.isInVenue && pooja.venueAddress" class="border rounded-lg p-4 bg-gray-50">
           <h3 class="text-sm font-semibold text-gray-700 mb-1">Venue Address</h3>
           <p class="text-gray-800">{{ pooja.venueAddress }}</p>
@@ -141,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRuntimeConfig } from '#app'
 import { usePoojaService } from '@/composables/usePoojaService'
@@ -160,6 +170,19 @@ function fullUrl(path) {
   if (!path) return ''
   return path.startsWith('http') ? path : `${config.apiBase}${path}`
 }
+
+const heroSrc = computed(() => {
+  // Prefer featuredMedia if present; fall back to legacy photoUrl
+  const rel =
+    pooja.value?.featuredMedia?.url ||
+    pooja.value?.featuredMedia?.path ||
+    pooja.value?.photoUrl ||
+    null
+  if (!rel) return ''
+  const base = fullUrl(rel)
+  const ver  = pooja.value?.featuredMedia?.updatedAt || pooja.value?.updatedAt || Date.now()
+  return `${base}${base.includes('?') ? '&' : '?'}v=${encodeURIComponent(ver)}`
+})
 
 function currencySymbol(code) {
   const map = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'د.إ' }
@@ -181,6 +204,7 @@ onMounted(async () => {
   try {
     const s = await getSettings()
     settingsCurrency.value = s?.currency || 'INR'
+    // 👇 make sure backend includes categories in findOne()
     pooja.value = await getPoojaById(route.params.id)
   } catch (err) {
     console.error('❌ Failed to load pooja:', err)
@@ -191,10 +215,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.material-icons {
-  vertical-align: -3px;
-}
-.prose :where(p):not(:first-child) {
-  margin-top: 0.5rem;
-}
+.material-icons { vertical-align: -3px; }
+.prose :where(p):not(:first-child) { margin-top: 0.5rem; }
 </style>

@@ -18,6 +18,18 @@
         >
           <span class="material-icons text-[18px] mr-2">payments</span>Currency
         </button>
+
+        <!-- NEW: Venues -->
+        <button
+          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          :class="activeTab === 'venues'
+            ? 'bg-red-600 text-white shadow'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'"
+          @click="activeTab = 'venues'"
+        >
+          <span class="material-icons text-[18px] mr-2">location_on</span>Venues
+        </button>
+
         <button
           class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           :class="activeTab === 'users'
@@ -77,6 +89,114 @@
               </button>
               <span v-if="currencySuccess" class="text-green-600 text-sm">Saved!</span>
               <span v-if="currencyError" class="text-red-600 text-sm">Error.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NEW: Venues -->
+      <section v-if="activeTab === 'venues'" class="space-y-6">
+        <!-- List -->
+        <div class="bg-white border border-[#ccc] rounded-xl shadow-sm">
+          <div class="px-6 py-4 border-b border-[#ccc] flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900">Venues</h3>
+              <p class="text-sm text-gray-500">Manage temple/banquet locations used in bookings.</p>
+            </div>
+            <button
+              class="inline-flex items-center gap-2 rounded-md bg-black text-white px-3 py-2 hover:opacity-90 cursor-pointer"
+              @click="openVenueForm()"
+            >
+              <span class="material-icons text-[18px]">add</span>
+              <span>New Venue</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 text-gray-600">
+                  <th class="px-6 py-3 text-left font-medium">Title</th>
+                  <th class="px-6 py-3 text-left font-medium">Address</th>
+                  <th class="px-6 py-3 text-left font-medium">Zipcode</th>
+                  <th class="px-6 py-3 text-left font-medium">Map Link</th>
+                  <th class="px-6 py-3 text-left font-medium">Active</th>
+                  <th class="px-6 py-3 text-left font-medium w-40">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">
+                <tr v-for="v in venues" :key="v.id" class="hover:bg-gray-50">
+                  <td class="px-6 py-3">{{ v.title }}</td>
+                  <td class="px-6 py-3">{{ v.address }}</td>
+                  <td class="px-6 py-3">{{ v.zipcode }}</td>
+                  <td class="px-6 py-3">
+                    <a v-if="v.mapLink" :href="v.mapLink" target="_blank" class="text-blue-600 hover:underline">Open</a>
+                    <span v-else class="text-gray-400">—</span>
+                  </td>
+                  <td class="px-6 py-3">
+                    <span class="text-xs rounded px-2 py-0.5"
+                          :class="v.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-600 border border-gray-300'">
+                      {{ v.isActive ? 'Yes' : 'No' }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-3">
+                    <div class="flex items-center gap-2">
+                      <button class="text-sm text-blue-600 hover:text-blue-800" @click="openVenueForm(v)">Edit</button>
+                      <button class="text-sm text-red-600 hover:text-red-800" @click="onDeleteVenue(v)">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="venuesError" class="px-6 py-4 text-red-600">Failed to load venues.</div>
+        </div>
+
+        <!-- Create / Edit Form -->
+        <div v-if="venueForm.open" class="bg-white border border-[#ccc] rounded-xl shadow-sm">
+          <div class="px-6 py-4 border-b border-[#ccc]">
+            <h3 class="text-lg font-semibold text-gray-900">{{ venueForm.id ? 'Edit Venue' : 'Create Venue' }}</h3>
+          </div>
+          <div class="p-6 space-y-4 max-w-3xl">
+            <div class="grid md:grid-cols-2 gap-4">
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input v-model.trim="venueForm.title" placeholder="e.g., Community Hall A"
+                  class="w-full rounded-md border border-[#ccc] px-3 py-2 shadow-sm focus:ring-red-500 focus:border-red-500"/>
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <textarea v-model.trim="venueForm.address" rows="3" placeholder="Full address"
+                  class="w-full rounded-md border border-[#ccc] px-3 py-2 shadow-sm focus:ring-red-500 focus:border-red-500"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Zipcode</label>
+                <input v-model.trim="venueForm.zipcode" placeholder="e.g., 380001"
+                  class="w-full rounded-md border border-[#ccc] px-3 py-2 shadow-sm focus:ring-red-500 focus:border-red-500"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Map Link (optional)</label>
+                <input v-model.trim="venueForm.mapLink" placeholder="https://maps.google.com/..."
+                  class="w-full rounded-md border border-[#ccc] px-3 py-2 shadow-sm focus:ring-red-500 focus:border-red-500"/>
+              </div>
+              <div class="flex items-center gap-2">
+                <input id="isActive" type="checkbox" v-model="venueForm.isActive" class="h-4 w-4 border-[#ccc] rounded"/>
+                <label for="isActive" class="text-sm text-gray-700">Active</label>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <button @click="saveVenue"
+                class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700" :disabled="savingVenue">
+                {{ savingVenue ? 'Saving…' : 'Save' }}
+              </button>
+              <button @click="cancelVenueForm"
+                class="px-4 py-2 rounded-md border border-[#ccc] hover:bg-gray-50" :disabled="savingVenue">
+                Cancel
+              </button>
+              <span v-if="venueSuccess" class="text-green-600 text-sm">Done!</span>
+              <span v-if="venueError" class="text-red-600 text-sm">{{ venueError }}</span>
             </div>
           </div>
         </div>
@@ -247,6 +367,10 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useSettingsService }   from '~/composables/useSettingsService'
 import { useUserService }       from '~/composables/useUserService'
 import { usePermissionService } from '~/composables/usePermissionService'
+import { useVenueService }      from '~/composables/useVenueService'
+
+/** Tabs **/
+const activeTab = ref('currency')
 
 /** Currency **/
 const { getSettings, updateSettings } = useSettingsService()
@@ -284,13 +408,106 @@ async function saveCurrency() {
   }
 }
 
+/** Venues **/
+const { fetchVenues, createVenue, updateVenue, deleteVenue } = useVenueService()
+const venues = ref([])
+const venuesError = ref(false)
+
+const venueForm = reactive({
+  open: false,
+  id: null,
+  title: '',
+  address: '',
+  zipcode: '',
+  mapLink: '',
+  isActive: true
+})
+const savingVenue  = ref(false)
+const venueSuccess = ref(false)
+const venueError   = ref('')
+
+function resetVenueForm() {
+  venueForm.id = null
+  venueForm.title = ''
+  venueForm.address = ''
+  venueForm.zipcode = ''
+  venueForm.mapLink = ''
+  venueForm.isActive = true
+}
+function openVenueForm(v = null) {
+  venueForm.open = true
+  venueError.value = ''
+  venueSuccess.value = false
+  if (v) {
+    venueForm.id = v.id
+    venueForm.title = v.title
+    venueForm.address = v.address
+    venueForm.zipcode = v.zipcode
+    venueForm.mapLink = v.mapLink || ''
+    venueForm.isActive = !!v.isActive
+  } else {
+    resetVenueForm()
+  }
+}
+function cancelVenueForm() {
+  venueForm.open = false
+  resetVenueForm()
+}
+
+async function loadVenues() {
+  try {
+    venues.value = await fetchVenues()
+    venuesError.value = false
+  } catch {
+    venuesError.value = true
+  }
+}
+
+async function saveVenue() {
+  if (!venueForm.title?.trim()) { venueError.value = 'Title is required'; return }
+  if (!venueForm.address?.trim()) { venueError.value = 'Address is required'; return }
+  if (!venueForm.zipcode?.trim()) { venueError.value = 'Zipcode is required'; return }
+  savingVenue.value = true
+  venueError.value = ''
+  venueSuccess.value = false
+  try {
+    const payload = {
+      title: venueForm.title.trim(),
+      address: venueForm.address.trim(),
+      zipcode: venueForm.zipcode.trim(),
+      mapLink: venueForm.mapLink?.trim() || undefined,
+      isActive: !!venueForm.isActive
+    }
+    if (venueForm.id) await updateVenue(venueForm.id, payload)
+    else await createVenue(payload)
+
+    venueSuccess.value = true
+    await loadVenues()
+    cancelVenueForm()
+  } catch (e) {
+    venueError.value = e?.message || 'Failed to save venue'
+  } finally {
+    savingVenue.value = false
+  }
+}
+
+async function onDeleteVenue(v) {
+  if (!confirm(`Delete venue "${v.title}"?`)) return
+  try {
+    await deleteVenue(v.id)
+    await loadVenues()
+  } catch (e) {
+    alert(e?.message || 'Failed to delete venue')
+  }
+}
+
 /** Users & Roles **/
 const {
   fetchUsers,
   createUser: createUserService,
   fetchRoles,
   createRole: createRoleService,
-  updateRole: updateRoleService,          // 👈 NEW
+  updateRole: updateRoleService,
 } = useUserService()
 
 const users       = ref([])
@@ -440,13 +657,13 @@ async function savePermissions(roleId) {
   }
 }
 
-/** Tabs **/
-const activeTab = ref('currency')
-
 onMounted(async () => {
   await loadCurrency()
   await loadUsers()
   await loadRoles()
+
+  // Venues
+  await loadVenues()
 
   // load permission modules
   try {

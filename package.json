@@ -10,12 +10,16 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@fullcalendar/core": "^6.1.19",
     "@fullcalendar/daygrid": "^6.1.19",
     "@fullcalendar/interaction": "^6.1.19",
     "@fullcalendar/list": "^6.1.19",
     "@fullcalendar/timegrid": "^6.1.19",
     "@fullcalendar/vue3": "^6.1.19",
+    "@mui/icons-material": "^7.3.2",
+    "@mui/material": "^7.3.2",
     "@pinia/nuxt": "^0.11.1",
     "@schedule-x/calendar": "^2.33.0",
     "@schedule-x/theme-default": "^2.33.0",
@@ -26,12 +30,14 @@
     "gsa": "^0.0.0",
     "gsap": "^3.13.0",
     "nuxt": "^3.17.5",
+    "pdfjs-dist": "^5.4.149",
     "pinia": "^3.0.3",
     "swiper": "^11.2.10",
     "vue": "^3.5.16",
     "vue-cal": "^4.10.2",
     "vue-router": "^4.5.1",
-    "vuedraggable": "^4.1.0"
+    "vuedraggable": "^4.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@nuxtjs/tailwindcss": "^7.0.0-beta.0",

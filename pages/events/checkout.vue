@@ -81,7 +81,7 @@ async function handleComplete() {
       userEmail: user.value.userEmail,
       userPhone: user.value.userPhone,
     })
-    router.push('/home')
+    router.push('/')
   } catch (err) {
     alert(err.message || 'Booking failed')
   }
