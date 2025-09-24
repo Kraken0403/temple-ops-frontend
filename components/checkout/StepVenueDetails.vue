@@ -124,30 +124,41 @@ const choice = ref('custom')
 watch(showChoice, (v) => {
   if (v && (choice.value !== 'temple' && choice.value !== 'custom')) {
     choice.value = 'temple'
-  } else if (v && choice.value === 'custom') {
-    // keep user's choice
   } else if (!v) {
-    // if only in-venue, force temple; if only outside, force custom
+    // if only in-venue (and assigned), force temple; otherwise prefer custom
     choice.value = hasTempleFlag.value && hasTempleVenueAssigned.value ? 'temple' : 'custom'
   }
 }, { immediate: true })
 
-// When only in-venue is allowed and a venue is assigned -> show temple card
+// When can we use temple card?
 const useTemple = computed(() => {
+  // must be allowed and assigned
   if (!hasTempleFlag.value || !hasTempleVenueAssigned.value) return false
-  // If both are allowed, depends on radio
+  // if both allowed and a temple exists, depend on user choice
   if (showChoice.value) return choice.value === 'temple'
-  // Only in-venue
+  // only in-venue allowed with assignment
   return true
 })
 
-// Show custom form when:
-// - only outside-venue allowed OR
-// - both allowed and user picked "custom"
+/**
+ * Show custom form when:
+ * 1) Outside-venue is allowed AND temple-venue is NOT assigned  -> (both allowed or outside-only) => TRUE
+ * 2) Outside-venue is allowed AND both modes allowed AND user chose "custom" -> TRUE
+ * 3) Outside-venue only -> TRUE
+ */
 const showCustomForm = computed(() => {
-  if (hasOutsideFlag.value && !hasTempleFlag.value) return true
-  if (showChoice.value) return choice.value === 'custom'
-  return false
+  if (!hasOutsideFlag.value) return false
+
+  // Both flags true:
+  if (hasTempleFlag.value) {
+    // No temple venue assigned → must allow custom
+    if (!hasTempleVenueAssigned.value) return true
+    // Temple assigned → show radio choice
+    return choice.value === 'custom'
+  }
+
+  // Outside-only
+  return true
 })
 
 // Local editable venue (for custom)
@@ -185,7 +196,7 @@ function nextStep() {
     const addr = [v?.title, v?.address].filter(Boolean).join(', ')
     const snapshot = {
       address: addr || 'Temple Venue',
-      state: '', // unknown — not stored; optional
+      state: '',
       zip: v?.zipcode || ''
     }
     emit('update-venue', snapshot)
