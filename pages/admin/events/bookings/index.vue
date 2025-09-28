@@ -34,13 +34,18 @@
           <div>
             <h3 class="text-lg font-semibold mb-2">{{ item.event.name }}</h3>
             <p class="text-sm text-gray-600 mb-1">
-              Date: <span class="font-medium text-gray-800">{{ formatDate(item.event.date) }}</span>
+              Date:
+              <span class="font-medium text-gray-800">
+                {{ formatDate(item.event.date, 'MMM dd, yyyy') }}
+              </span>
             </p>
             <p class="text-sm text-gray-600 mb-1">
-              Capacity: <span class="font-medium text-gray-800">{{ item.event.capacity ?? '—' }}</span>
+              Capacity:
+              <span class="font-medium text-gray-800">{{ item.event.capacity ?? '—' }}</span>
             </p>
             <p class="text-sm text-gray-600">
-              Bookings: <span class="font-medium text-gray-800">{{ item.count }}</span>
+              Bookings:
+              <span class="font-medium text-gray-800">{{ item.count }}</span>
             </p>
           </div>
         </div>
@@ -48,7 +53,7 @@
         <!-- Right: Action -->
         <button
           @click.stop="goToDetails(item.event.id)"
-          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
         >
           View Bookings
         </button>
@@ -64,6 +69,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRuntimeConfig } from '#app'
 import { useEventsService } from '~/composables/useEventsService'
 import { useEventBookingService } from '~/composables/useEventBookingService'
+import { formatDate } from '@/utils/timezone'
 
 const router = useRouter()
 const config = useRuntimeConfig().public
@@ -73,10 +79,6 @@ const { fetchBookings } = useEventBookingService()
 const eventsWithCount = ref([])
 const loading = ref(true)
 const error = ref(false)
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString()
-}
 
 function fullImageUrl(path) {
   return path.startsWith('http') ? path : `${config.apiBase}${path}`

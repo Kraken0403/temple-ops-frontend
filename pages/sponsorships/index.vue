@@ -1,3 +1,4 @@
+<!-- File: pages/sponsorships/index.vue -->
 <template>
   <section class="w-full mx-auto">
     <PageHero
@@ -6,25 +7,28 @@
       :imageUrl="heroBg"
     />
 
-    <div class="mx-auto px-4">
+    <div class="mx-auto py-[100px] px-4 max-w-[1190px]">
+      <!-- Filters -->
+      <div class="flex justify-end items-center mb-6">
+        <label class="text-sm font-medium text-gray-700 mr-2">Filter by Event:</label>
+        <select
+          v-model="selectedEvent"
+          class="border rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">All Events</option>
+          <option v-for="ev in uniqueEvents" :key="ev" :value="ev">{{ ev }}</option>
+        </select>
+      </div>
+
       <!-- Grid of sponsorship cards -->
-      <div class="max-w-[1190px] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mx-auto py-[100px]">
-        <!-- Card -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         <div
-          v-for="s in sponsorships"
+          v-for="s in filteredSponsorships"
           :key="s.id"
           class="bg-white rounded-lg overflow-hidden shadow hover:shadow-lg transition flex flex-col"
         >
-          <!-- Event Image -->
-          <img
-            v-if="s.event?.imageUrl"
-            :src="fullImageUrl(s.event.imageUrl)"
-            :alt="s.event?.name || 'Event image'"
-            class="w-full h-48 object-cover"
-          />
-          <div v-else class="w-full h-48 bg-gray-100 flex items-center justify-center text-gray-400">
-            No Image
-          </div>
+          <!-- No Image -->
+          <div class="w-full h-2 bg-[#004B21]"></div>
 
           <!-- Content -->
           <div class="p-4 flex-1 flex flex-col">
@@ -64,32 +68,39 @@
         Error loading sponsorships.
       </div>
     </div>
-
-    <!-- <Experience /> -->
   </section>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRuntimeConfig } from '#app'
 import { useSponsorshipService } from '@/composables/useSponsorshipService'
 import { useSettingsService } from '@/composables/useSettingsService'
 import PageHero from '@/components/PageHero.vue'
-import Experience from '@/components/Experience.vue'
 import heroBg from '@/assets/images/sample-2.png'
 
 const sponsorships = ref([])
 const error = ref(false)
 const settingsCurrency = ref('INR')
+const selectedEvent = ref('')
 
 const config = useRuntimeConfig().public
 const { getAllEventSponsorships } = useSponsorshipService()
 const { getSettings } = useSettingsService()
 
-function fullImageUrl(path) {
-  if (!path) return ''
-  return path.startsWith('http') ? path : `${config.apiBase}${path}`
-}
+const uniqueEvents = computed(() => {
+  const names = sponsorships.value
+    .map((s) => s.event?.name)
+    .filter(Boolean)
+  return [...new Set(names)]
+})
+
+const filteredSponsorships = computed(() => {
+  if (!selectedEvent.value) return sponsorships.value
+  return sponsorships.value.filter(
+    (s) => s.event?.name === selectedEvent.value
+  )
+})
 
 function currencySymbol(code) {
   const map = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'د.إ' }
@@ -109,15 +120,8 @@ function formatMoney(amount, code) {
 
 onMounted(async () => {
   try {
-    // Load currency from settings
-    try {
-      const s = await getSettings()
-      settingsCurrency.value = s?.currency || 'INR'
-    } catch (e) {
-      console.warn('⚠️ Could not load settings; defaulting currency to INR')
-      settingsCurrency.value = 'INR'
-    }
-
+    const s = await getSettings()
+    settingsCurrency.value = s?.currency || 'INR'
     sponsorships.value = await getAllEventSponsorships()
   } catch (err) {
     console.error('Failed to load sponsorships', err)

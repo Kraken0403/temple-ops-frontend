@@ -17,11 +17,11 @@
             Bookings for "{{ event.name }}" (ID: {{ eventId }})
           </h1>
           <p class="text-gray-600">
-            {{ formatDate(event.date) }} at {{ event.venue }}
+            {{ formatDate(event.date, 'MMM dd, yyyy') }} at {{ event.venue }}
           </p>
         </div>
 
-        <!-- ⬇️ Export to Excel -->
+        <!-- Export to Excel -->
         <button
           @click="exportExcel"
           :disabled="exporting"
@@ -55,7 +55,7 @@
               <td class="px-4 py-3">{{ b.userName || '—' }}</td>
               <td class="px-4 py-3">{{ b.userEmail || '—' }}</td>
               <td class="px-4 py-3">{{ b.userPhone || '—' }}</td>
-              <td class="px-4 py-3">{{ formatDateTime(b.bookedAt) }}</td>
+              <td class="px-4 py-3">{{ formatDateTime(b.bookedAt, 'MMM dd, yyyy hh:mm a') }}</td>
             </tr>
             <tr v-if="bookings.length === 0">
               <td colspan="6" class="p-4 text-center text-gray-600">
@@ -65,6 +65,7 @@
           </tbody>
         </table>
 
+        <!-- Pagination -->
         <div
           class="flex justify-between items-center p-4 border-t bg-gray-50 text-sm text-gray-600"
         >
@@ -98,6 +99,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from '#app'
 import { useEventsService } from '~/composables/useEventsService'
 import { useEventBookingService } from '~/composables/useEventBookingService'
+import { formatDate, formatDateTime } from '@/utils/timezone'
 
 const route = useRoute()
 const router = useRouter()
@@ -131,48 +133,28 @@ function goToPage(page) {
   }
 }
 
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  })
-}
-
-function formatDateTime(iso) {
-  return new Date(iso).toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
 function goBack() {
   router.push('/admin/events/bookings')
 }
 
-/** ⬇️ Export to Excel using SheetJS (xlsx) */
 async function exportExcel() {
   try {
     exporting.value = true
     const xlsx = await import('xlsx')
 
     const headers = ['Booking ID', 'Seats', 'Name', 'Email', 'Phone', 'Booked At']
-    const rows = bookings.value.map(b => [
+    const rows = await Promise.all(bookings.value.map(async b => [
       b.id,
       b.pax,
       b.userName || '—',
       b.userEmail || '—',
       b.userPhone || '—',
-      formatDateTime(b.bookedAt),
-    ])
+      await formatDateTime(b.bookedAt, 'MMM dd, yyyy hh:mm a'),
+    ]))
 
     const aoa = [headers, ...rows]
     const ws  = xlsx.utils.aoa_to_sheet(aoa)
 
-    // Optional: auto width
     ws['!cols'] = headers.map((h, i) => {
       const colVals = [h, ...rows.map(r => String(r[i] ?? ''))]
       const maxLen = Math.max(...colVals.map(v => v.length))

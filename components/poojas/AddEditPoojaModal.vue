@@ -197,36 +197,44 @@
                 </div>
   
                 <!-- In-Venue -->
-                <div v-if="form.isInVenue" class="grid grid-cols-2 gap-4">
-                  <div class="col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Venue</label>
-                    <select
-                      v-model.number="form.venueId"
-                      class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                    >
-                      <option :value="null" disabled>Select a venue</option>
-                      <option v-for="v in venues" :key="v.id" :value="v.id">
-                        {{ v.title }} — {{ v.zipcode }}
-                      </option>
-                    </select>
+
+                  <div v-if="form.isInVenue" class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                      <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Venue <span class="text-red-600">*</span>
+                      </label>
+                      <select
+                        v-model.number="form.venueId"
+                        required
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
+                      >
+                        <option :value="null" disabled>Select a venue</option>
+                        <option v-for="v in venues" :key="v.id" :value="v.id">
+                          {{ v.title }} — {{ v.zipcode }}
+                        </option>
+                      </select>
+                      <p v-if="touched && !form.venueId" class="text-xs text-red-600 mt-1">
+                        Please select a venue.
+                      </p>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                      <input
+                        v-model="form.date"
+                        type="date"
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                      <input
+                        v-model="form.time"
+                        type="time"
+                        class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                    <input
-                      v-model="form.date"
-                      type="date"
-                      class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                    <input
-                      v-model="form.time"
-                      type="time"
-                      class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
-                    />
-                  </div>
-                </div>
+
   
                 <!-- Outside-Venue -->
                 <div v-if="form.isOutsideVenue" class="space-y-4">
@@ -456,16 +464,19 @@
   
   const hasVenueMode = computed(() => form.isInVenue || form.isOutsideVenue)
   const canSave = computed(() => {
-    const priestIds = (form.priestIds || []).map(Number).filter(Boolean)
-    const categoryIds = (form.categoryIds || []).map(Number).filter(Boolean)
-    return Boolean(
-      form.name &&
-      form.featuredMediaId &&
-      priestIds.length > 0 &&
-      categoryIds.length > 0 &&
-      hasVenueMode.value
-    )
-  })
+  const priestIds = (form.priestIds || []).map(Number).filter(Boolean)
+  const categoryIds = (form.categoryIds || []).map(Number).filter(Boolean)
+  const venueOk = !form.isInVenue || !!form.venueId // ✅ require venue if in-venue is selected
+
+  return Boolean(
+    form.name &&
+    form.featuredMediaId &&
+    priestIds.length > 0 &&
+    categoryIds.length > 0 &&
+    hasVenueMode.value &&
+    venueOk
+  )
+})
   
   /* Image picker */
   const previewUrl = ref(null)

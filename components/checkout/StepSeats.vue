@@ -1,4 +1,3 @@
-<!-- File: components/checkout/StepSeats.vue -->
 <template>
   <div>
     <h2 class="text-[22px] font-bold mb-[30px] text-center">How many seats?</h2>
@@ -14,13 +13,13 @@
       <button
         @click="onBack"
         :disabled="props.stepIndex === 0"
-        class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50"
+        class="px-4 py-2 cursor-pointer bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50"
       >
         Back
       </button>
       <button
         @click="onNext"
-        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        class="px-4 py-2 cursor-pointer bg-blue-600 text-white rounded hover:bg-blue-700"
       >
         Next
       </button>
@@ -30,6 +29,9 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { useNotification } from '@/composables/useNotification'
+
+const { showNotification } = useNotification()
 
 const props = defineProps({
   pax:       { type: Number, required: true },
@@ -41,8 +43,12 @@ const localPax = ref(props.pax)
 watch(localPax, v => emit('update-pax', v))
 
 function onNext() {
-  if (localPax.value >= 1) emit('next')
-  else alert('Please select at least 1 seat.')
+  if (localPax.value >= 1) {
+    showNotification(`Selected ${localPax.value} seat(s)`, 'success')
+    emit('next')
+  } else {
+    showNotification('Please select at least 1 seat', 'error')
+  }
 }
 function onBack() { emit('back') }
 </script>

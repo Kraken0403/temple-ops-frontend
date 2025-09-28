@@ -8,8 +8,8 @@
       :is="steps[currentStep]"
       :pooja="pooja"
       :selectedSlot="selectedSlot"
-      :user="user"
-      :venue="venue"
+      :user="user.value"  
+      :venue="venue.value"        
       @update-user="(u) => user.value = u"
       @update-venue="(v) => venue.value = v"
       @update-slot="(slot) => selectedSlot = slot"
@@ -39,8 +39,8 @@ const { getPoojaById } = usePoojaService()
 
 const pooja = ref(null)
 const selectedSlot = ref(null)
-const user = ref({ name: '', phone: '', email: '' })
-const venue = ref({ address: '', state: '', zip: '' })
+const user = ref({ name: '', phone: '', email: '' })          // ✅ wrapped in ref
+const venue = ref({ address: '', state: '', zip: '' })        // ✅ wrapped in ref
 const currentStep = ref(0)
 
 const allSteps = [
@@ -54,9 +54,7 @@ const allSteps = [
 const needsVenueStep = computed(() => {
   const p = pooja.value
   if (!p) return false
-  // For Pooja, there is NO `venue` string; only `venueId`/`venueRel`
   const hasTempleVenue = !!(p.venueRel || p.venueId)
-  // Show the step if: outside-venue is allowed OR (in-venue is allowed AND a temple venue is assigned)
   return p.isOutsideVenue || (p.isInVenue && hasTempleVenue)
 })
 
@@ -70,8 +68,8 @@ const steps = computed(() => {
 const labels = computed(() => {
   if (!pooja.value) return []
   return needsVenueStep.value
-    ? ['Select Slot','Venue Details','Your Details','Review']
-    : ['Select Slot','Your Details','Review']
+    ? ['Select Slot', 'Venue Details', 'Your Details', 'Review']
+    : ['Select Slot', 'Your Details', 'Review']
 })
 
 function handleNext() {

@@ -31,6 +31,7 @@
         :pax="pax"
         :user="user"
         :stepIndex="currentStep"
+        :submitting="submitting" 
         @update-pax="pax = $event"
         @update-user="user = $event"
         @next="handleNext"
@@ -54,6 +55,7 @@ import StepReview from '~/components/checkout/StepReview.vue'
 
 const route  = useRoute()
 const router = useRouter()
+const submitting = ref(false) 
 const { getEventById } = useEventsService()
 const { bookEvent }    = useEventBookingService()
 
@@ -79,6 +81,7 @@ async function handleComplete() {
     alert('Registrations are closed for this event.')
     return
   }
+  submitting.value = true  
   try {
     await bookEvent(event.value.id, {
       pax:       pax.value,
@@ -91,6 +94,8 @@ async function handleComplete() {
     setTimeout(() => router.push('/events'), 2000)
   } catch (err) {
     alert(err.message || 'Booking failed')
+  } finally {
+    submitting.value = false 
   }
 }
 
@@ -103,6 +108,7 @@ onMounted(async () => {
     console.error(e)
   } finally {
     loading.value = false
+    
   }
 })
 </script>

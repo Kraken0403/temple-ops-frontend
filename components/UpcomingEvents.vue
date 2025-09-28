@@ -33,19 +33,20 @@
             <!-- Card -->
             <div class="bg-white rounded-lg overflow-hidden shadow hover:shadow-lg transition flex flex-col">
               <!-- Image -->
-              <template v-if="evt.imageUrl">
-                <img
-                  :src="fullImageUrl(evt.imageUrl)"
-                  :alt="evt.name"
-                  class="w-full h-48 object-cover"
-                />
-              </template>
-              <div
-                v-else
-                class="w-full h-48 bg-gray-100 flex items-center justify-center text-gray-400"
-              >
-                No Image
-              </div>
+         
+            <template v-if="evt.featuredMedia?.url">
+              <img
+                :src="fullImageUrl(evt.featuredMedia.url)"
+                :alt="evt.name"
+                class="w-full h-48 object-cover"
+              />
+            </template>
+            <div
+              v-else
+              class="w-full h-48 bg-gray-100 flex items-center justify-center text-gray-400"
+            >
+              No Image
+            </div>
   
               <!-- Content -->
               <div class="p-4 flex-1 flex flex-col">
@@ -110,8 +111,9 @@
   
   function fullImageUrl(path) {
     if (!path) return ''
-    return path.startsWith('http') ? path : `${config.apiBase}${path}`
+    return String(path).startsWith('http') ? path : `${config.apiBase}${path}`
   }
+
   
   function formatDate(iso) {
     return new Date(iso).toLocaleDateString('en-IN', {

@@ -232,10 +232,19 @@
     }
   }
   
-  watch(() => props.content, (c) => {
-    form.value = c && typeof c === 'object' ? structuredClone(c) : defaultContent()
+  watch(
+  () => props.content,
+  (c) => {
+    if (c && typeof c === 'object') {
+      // Break reactivity, convert proxy → plain object
+      form.value = JSON.parse(JSON.stringify(c))
+    } else {
+      form.value = defaultContent()
+    }
     validate()
-  }, { immediate: true })
+  },
+  { immediate: true }
+)
   
   /* -------- Validation -------- */
   function setError(k, v) { if (v) errors.value[k] = v; else delete errors.value[k] }

@@ -6,7 +6,6 @@
     <div class="mb-6">
       <label class="block font-medium mb-2">Select Priest</label>
 
-      <!-- Multiple priests: show radios -->
       <div v-if="priests.length > 1" class="space-y-2">
         <label
           v-for="priest in priests"
@@ -24,7 +23,6 @@
         </label>
       </div>
 
-      <!-- Single priest: show as fixed selection -->
       <div
         v-else-if="priests.length === 1"
         class="flex items-center justify-between rounded-md border border-[#ccc] p-3"
@@ -36,7 +34,6 @@
         <span class="text-xs text-gray-500">Selected</span>
       </div>
 
-      <!-- No priests available -->
       <div v-else class="rounded-md border border-[#ccc] p-3 text-gray-600">
         No priest is assigned to this pooja yet. Please contact admin.
       </div>
@@ -55,14 +52,12 @@
       />
     </div>
 
-    <!-- Guards -->
     <div v-if="!selectedDate || !selectedPriestId" class="text-gray-600">
       Please select a priest and date to see available slots.
     </div>
 
-    <!-- No slots -->
     <div v-else-if="bookableChunks.length === 0" class="text-red-600">
-      ❌ No available slots for {{ formatDate(selectedDate) }}.
+      ❌ No available slots for {{ formatDate(selectedDate, 'MMM dd, yyyy') }}.
     </div>
 
     <!-- Slots -->
@@ -77,7 +72,7 @@
           : 'border-gray-300 hover:border-gray-400 bg-white'"
       >
         <div class="font-semibold text-gray-800 text-[14px]">
-          {{ formatTime(slot.start) }} – {{ formatTime(slot.end) }}
+          {{ formatTime(slot.start, 'hh:mm a') }} – {{ formatTime(slot.end, 'hh:mm a') }}
         </div>
         <div class="w-5 h-5 flex-shrink-0 flex items-center justify-center">
           <div
@@ -95,7 +90,7 @@
       <button
         :disabled="!selectedSlot"
         @click="proceed"
-        class="px-5 py-2 rounded text-white"
+        class="px-5 py-2 rounded text-white cursor-pointer"
         :class="selectedSlot
           ? 'bg-blue-600 hover:bg-blue-700'
           : 'bg-gray-400 cursor-not-allowed'"
@@ -111,18 +106,16 @@ import { ref, watch, onMounted, computed } from 'vue'
 import { useRuntimeConfig } from '#app'
 import { usePriestService } from '@/composables/usePriestService'
 import { toLocalYMD } from '@/utils/date'
+import { formatDate, formatTime } from '@/utils/timezone'
 
 const props = defineProps({ pooja: { type: Object, required: true } })
 const emit  = defineEmits(['next', 'update-slot'])
 
-const { public: { apiBase } } = useRuntimeConfig()
 const { getAvailableChunks } = usePriestService()
 
-// Derived list so template never touches undefined
 const priests = computed(() => props.pooja?.priests ?? [])
 const singlePriest = computed(() => (priests.value.length === 1 ? priests.value[0] : null))
 
-// Earliest allowed date = tomorrow (local)
 const minDate = computed(() => {
   const d = new Date()
   d.setDate(d.getDate() + 1)
@@ -134,81 +127,36 @@ const selectedPriestId = ref(null)
 const selectedSlot     = ref(null)
 const bookableChunks   = ref([])
 
-// Ensure selection: preselect only when exactly one priest
 const ensurePriestSelection = () => {
   if (priests.value.length === 1) {
     selectedPriestId.value = singlePriest.value?.id ?? null
-    console.info('[StepSlotSelection] Single priest auto-selected:', selectedPriestId.value)
   } else {
-    // multiple or zero → wait for user
     selectedPriestId.value = null
   }
 }
 watch(priests, ensurePriestSelection, { immediate: true })
 onMounted(ensurePriestSelection)
 
-function onPriestPicked(id) {
-  console.info('[StepSlotSelection] Priest picked via radio:', id)
-}
-function onDateChange(e) {
-  console.info('[StepSlotSelection] Date input changed:', e?.target?.value)
-}
+function onPriestPicked(id) {}
+function onDateChange(e) {}
 
-// Display helpers (avoid UTC shift)
-function formatDateYMD(ymd) {
-  const [y, m, d] = ymd.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })
-}
-const formatDate = formatDateYMD
-const formatTime = iso => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
-// Sync selection upwards
 watch(selectedSlot, slot => {
   if (slot) emit('update-slot', { slot, bookingDate: selectedDate.value })
 })
 
-// Fetch chunks whenever date or priest changes
 watch([selectedDate, selectedPriestId], async () => {
   selectedSlot.value   = null
   bookableChunks.value = []
 
-  if (!selectedDate.value || !selectedPriestId.value) {
-    console.warn('[StepSlotSelection] Missing selection → no fetch', {
-      selectedDate: selectedDate.value,
-      selectedPriestId: selectedPriestId.value
-    })
-    return
-  }
+  if (!selectedDate.value || !selectedPriestId.value) return
 
   const totalBlock =
     (props.pooja?.durationMin || 0) +
     (props.pooja?.prepTimeMin  || 0) +
     (props.pooja?.bufferMin    || 0)
 
-  const priestIdNum = Number(selectedPriestId.value)
-  const url = new URL(`${apiBase}/priest/${encodeURIComponent(priestIdNum)}/available-chunks`)
-  url.searchParams.set('bookingDate', selectedDate.value)
-  url.searchParams.set('totalMinutes', String(totalBlock))
-
-  console.info('[StepSlotSelection] Will fetch chunks:', {
-    apiBase, priestId: priestIdNum, bookingDate: selectedDate.value, totalMinutes: totalBlock,
-    url: url.toString()
-  })
-
-  try {
-    const chunks = await getAvailableChunks(priestIdNum, selectedDate.value, totalBlock)
-
-    if (Array.isArray(chunks)) {
-      console.info('[StepSlotSelection] Chunks fetched:', { count: chunks.length, first: chunks[0] })
-    } else {
-      console.error('[StepSlotSelection] Unexpected response (not array):', chunks)
-    }
-
-    bookableChunks.value = Array.isArray(chunks) ? chunks.filter(c => c.type === 'AVAILABLE') : []
-  } catch (e) {
-    console.error('[StepSlotSelection] Fetch failed:', e)
-    bookableChunks.value = []
-  }
+  const chunks = await getAvailableChunks(Number(selectedPriestId.value), selectedDate.value, totalBlock)
+  bookableChunks.value = Array.isArray(chunks) ? chunks.filter(c => c.type === 'AVAILABLE') : []
 }, { immediate: true })
 
 function onSelect(slot) { selectedSlot.value = slot }

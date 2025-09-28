@@ -1,3 +1,4 @@
+<!-- .pages/admin/bookings/index.vue -->
 <template>
   <section class="p-6 max-w-full mx-auto">
     <!-- Header + Controls -->
@@ -130,6 +131,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useBookingService } from '@/composables/useBookingService'
 import { useRouter } from '#app'
 import { useSettingsService } from '@/composables/useSettingsService'
+import { formatDate, formatDateTime } from '@/utils/timezone'
 
 const { getAllBookings } = useBookingService()
 const { getSettings } = useSettingsService()
@@ -150,7 +152,6 @@ const settingsCurrency = ref('INR')
 
 const router = useRouter()
 
-// dropdown options (based on snapshot names)
 const priestOptions = computed(() =>
   [...new Set(bookings.value.map(b => b.priestNameAtBooking || b.priest?.name).filter(Boolean))]
 )
@@ -161,7 +162,6 @@ const statusOptions = computed(() =>
 const filteredBookings = computed(() => {
   const term = searchTerm.value.trim().toLowerCase()
   return bookings.value.filter(b => {
-    // text search (use snapshot names)
     const hay = [
       b.id,
       b.poojaNameAtBooking || b.pooja?.name,
@@ -170,13 +170,10 @@ const filteredBookings = computed(() => {
     ].filter(Boolean).join(' ').toLowerCase()
 
     const matchSearch = !term || hay.includes(term)
-
-    // priest/status filters (snapshot)
     const priestName = b.priestNameAtBooking || b.priest?.name
     const matchPriest = !selectedPriest.value || priestName === selectedPriest.value
     const matchStatus = !selectedStatus.value || b.status === selectedStatus.value
 
-    // bookingDate range
     const bd = new Date(b.bookingDate)
     const fromOK = !dateFrom.value || bd >= new Date(dateFrom.value)
     const toOK   = !dateTo.value   || bd <= new Date(dateTo.value)
@@ -195,17 +192,10 @@ const totalPages = computed(() =>
 
 onMounted(async () => {
   try {
-    // Load currency first (for formatting)
-    try {
-      const s = await getSettings()
-      settingsCurrency.value = s?.currency || 'INR'
-    } catch {
-      settingsCurrency.value = 'INR'
-    }
-
+    const s = await getSettings()
+    settingsCurrency.value = s?.currency || 'INR'
     bookings.value = await getAllBookings()
-  } catch (e) {
-    console.error(e)
+  } catch {
     error.value = true
   } finally {
     loading.value = false
@@ -217,11 +207,9 @@ function goToPage(page) {
     currentPage.value = page
   }
 }
-
 function goToBooking(id) {
   router.push(`/admin/bookings/${id}`)
 }
-
 function currencySymbol(code) {
   const map = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'د.إ' }
   return map[code] || '₹'
@@ -238,73 +226,4 @@ function formatMoney(amount, code) {
     return `${currencySymbol(code)}${Number(amount).toLocaleString()}`
   }
 }
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
-}
-function formatDateTime(iso) {
-  return new Date(iso).toLocaleString('en-IN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-async function downloadXLSX() {
-  // lazy-load to avoid SSR issues
-  const XLSX = await import('xlsx')
-  const today = new Date().toISOString().split('T')[0]
-
-  const header = [
-    'ID',
-    'Pooja',
-    'Priest',
-    'Status',
-    'Booking Date',
-    'Start',
-    'End',
-    'Amount',
-    'Currency'
-  ]
-
-  const rows = filteredBookings.value.map(b => ([
-    b.id,
-    (b.poojaNameAtBooking || b.pooja?.name || ''),
-    (b.priestNameAtBooking || b.priest?.name || ''),
-    b.status,
-    new Date(b.bookingDate), // keep as Date so Excel recognizes it
-    new Date(b.start),
-    new Date(b.end),
-    Number(b.amountAtBooking ?? 0),
-    settingsCurrency.value
-  ]))
-
-  const aoa = [header, ...rows]
-  const ws = XLSX.utils.aoa_to_sheet(aoa)
-
-  // optional: set column widths
-  ws['!cols'] = [
-    { wch: 6 },   // ID
-    { wch: 28 },  // Pooja
-    { wch: 24 },  // Priest
-    { wch: 12 },  // Status
-    { wch: 18 },  // Booking Date
-    { wch: 20 },  // Start
-    { wch: 20 },  // End
-    { wch: 12 },  // Amount
-    { wch: 10 },  // Currency
-  ]
-
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Bookings')
-
-  XLSX.writeFile(wb, `pooja-bookings-${today}.xlsx`)
-}
-
 </script>

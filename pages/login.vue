@@ -23,6 +23,9 @@
         Sign in
       </button>
     </form>
+
+    <!-- Notification Snackbar -->
+    <NotificationSnackbar />
   </div>
 </template>
 
@@ -30,19 +33,23 @@
 import { ref } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useRouter } from 'vue-router'
+import { useNotification } from '@/composables/useNotification'
+import NotificationSnackbar from '@/components/ui/NotificationSnackbar.vue'
 
 const email    = ref('')
 const password = ref('')
 const { login } = useAuth()
 const router   = useRouter()
+const { showNotification } = useNotification()
 
 async function onSubmit() {
   try {
     await login({ email: email.value, password: password.value })
+    showNotification('Login successful!', 'success')
     router.push('/admin/bookings')
   } catch (err) {
     console.error('Login failed:', err)
-    // Display an error notification here
+    showNotification(err.message || 'Login failed. Please try again.', 'error')
   }
 }
 </script>

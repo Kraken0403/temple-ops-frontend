@@ -1,64 +1,103 @@
 <template>
-  <div class="space-y-4">
+  <div class="space-y-6">
+    <!-- Top Bar -->
     <UtilsBar title="Events List" buttonLabel="Add New Event" @action="openCreate" />
 
+    <!-- Filters -->
+    <div class="bg-white border mb-[15px] border-gray-200 rounded-[3px] p-4 flex flex-col md:flex-row md:items-end md:gap-4 gap-3">
+      <div class="flex-1">
+        <label class="block text-sm font-medium text-gray-600 mb-1">Search</label>
+        <input
+          v-model="filters.q"
+          @input="applyFilters"
+          type="text"
+          placeholder="Search by name, venue..."
+          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">From Date</label>
+        <input
+          v-model="filters.from"
+          @change="applyFilters"
+          type="date"
+          class="border border-gray-300 rounded-md px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">To Date</label>
+        <input
+          v-model="filters.to"
+          @change="applyFilters"
+          type="date"
+          class="border border-gray-300 rounded-md px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">Capacity</label>
+        <select
+          v-model="filters.capacity"
+          @change="applyFilters"
+          class="border border-gray-300 rounded-md px-3 py-2 text-sm"
+        >
+          <option value="">All</option>
+          <option value="small">0–100</option>
+          <option value="medium">101–500</option>
+          <option value="large">500+</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Error -->
     <div v-if="error" class="text-center text-red-600">Error loading events.</div>
 
-    <div class="cards bg-white min-h-[100vh] flex flex-col gap-2 p-4">
+    <!-- Cards -->
+    <div class="grid mx-[15px] grid-cols-1 md:grid-cols-2 gap-2">
       <NuxtLink
-        v-for="ev in events"
+        v-for="ev in filteredEvents"
         :key="ev.id"
         :to="`/admin/events/${ev.id}`"
-        class="flex justify-between items-start p-4 bg-white border border-gray-300 rounded shadow-sm hover:shadow-md transition no-underline text-inherit"
+        class="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-[3px] overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition transform duration-200 no-underline text-inherit"
       >
-        <div class="flex gap-4">
-          <!-- Image -->
-          <div class="w-24 h-24 flex-shrink-0 rounded bg-gray-100 overflow-hidden border border-gray-400">
-            <img
-              v-if="imageSrc(ev)"
-              :src="imageSrc(ev)"
-              class="w-full h-full object-cover"
-              alt="Event image"
-            />
-            <div v-else class="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-              No Image
-            </div>
-          </div>
-
-          <!-- Details -->
-          <div>
-            <h3 class="text-lg font-semibold text-gray-800 mb-1">{{ ev.name }}</h3>
-
-            <p class="text-sm text-gray-600 mb-1">
-              Date: <span class="font-medium text-gray-700">{{ formatDate(ev.date) }}</span>
-            </p>
-
-            <p class="text-sm text-gray-600 mb-1">
-              Venue:
-              <span class="font-medium text-gray-700">
-                {{ ev.venueRel?.title || ev.venue || '—' }}
-              </span>
-            </p>
-
-            <p v-if="ev.capacity != null" class="text-sm text-gray-600">
-              Capacity: <span class="font-medium text-gray-700">{{ ev.capacity }}</span>
-            </p>
+        <!-- Image -->
+        <div class="sm:w-40 h-40 sm:h-auto flex-shrink-0 bg-gray-100 border-b sm:border-b-0 sm:border-r border-gray-200">
+          <img
+            v-if="imageSrc(ev)"
+            :src="imageSrc(ev)"
+            class="w-full h-full object-cover"
+            alt="Event image"
+          />
+          <div v-else class="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+            No Image
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="flex items-end space-x-2">
-          <button @click.stop="goToEdit(ev.id)" class="text-blue-600 hover:text-blue-800" title="Edit">
-            <div class="icon-wrapper rounded-full border border-gray-400 flex justify-center items-center">
-              <span class="material-icons text-[18px]">edit</span>
-            </div>
-          </button>
+        <!-- Details -->
+        <div class="flex-1 p-4 flex flex-col justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{{ ev.name }}</h3>
 
-          <button @click.stop="handleDelete(ev.id)" class="text-red-600 hover:text-red-800" title="Delete">
-            <div class="icon-wrapper rounded-full border border-gray-400 flex justify-center items-center">
-              <span class="material-icons text-[18px]">delete</span>
-            </div>
-          </button>
+            <p class="text-sm text-gray-600 mb-1">
+              <span class="font-medium text-gray-700">Date:</span>
+              {{ formatDate(ev.date, 'MMM dd, yyyy') }}
+            </p>
+
+            <p class="text-sm text-gray-600 mb-1">
+              <span class="font-medium text-gray-700">Venue:</span>
+              {{ ev.venueRel?.title || ev.venue || '—' }}
+            </p>
+
+            <p v-if="ev.capacity != null" class="text-sm text-gray-600">
+              <span class="font-medium text-gray-700">Capacity:</span> {{ ev.capacity }}
+            </p>
+          </div>
+
+          <p class="text-xs text-gray-400 mt-3">
+            Created: {{ formatDate(ev.createdAt, 'MMM dd, yyyy') }}
+          </p>
         </div>
       </NuxtLink>
     </div>
@@ -77,16 +116,17 @@
 <script setup>
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from '#app'
 import UtilsBar from '~/components/UtilsBar.vue'
 import AddEditEventModal from '@/components/events/AddEditEventModal.vue'
 import { useEventsService } from '~/composables/useEventsService'
 import { useSettingsService } from '@/composables/useSettingsService'
 import { useMediaService } from '@/composables/useMediaService'
+import { formatDate } from '@/utils/timezone'
 
 const router = useRouter()
-const { fetchEvents, deleteEvent } = useEventsService()
+const { fetchEvents } = useEventsService()
 const { getSettings } = useSettingsService()
 const { fullUrl } = useMediaService()
 
@@ -94,6 +134,13 @@ const events = ref([])
 const error = ref(null)
 const showModal = ref(false)
 const settingsCurrency = ref('INR')
+
+const filters = ref({
+  q: '',
+  from: '',
+  to: '',
+  capacity: ''
+})
 
 function imageSrc(ev) {
   const rel = ev?.featuredMedia?.url || ev?.featuredMedia?.path || ev?.photoUrl || null
@@ -103,13 +150,6 @@ function imageSrc(ev) {
   return `${base}${base.includes('?') ? '&' : '?'}v=${encodeURIComponent(ver)}`
 }
 
-function formatDate(iso) {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-  } catch { return '—' }
-}
-
 async function load() {
   try {
     try {
@@ -117,7 +157,9 @@ async function load() {
       settingsCurrency.value = s?.currency || 'INR'
     } catch { settingsCurrency.value = 'INR' }
 
-    events.value = await fetchEvents()
+    const res = await fetchEvents()
+    // Sort by createdAt descending
+    events.value = res.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   } catch (e) {
     error.value = e
     console.error('Failed to load:', e)
@@ -126,25 +168,39 @@ async function load() {
 
 function openCreate() { showModal.value = true }
 async function onCreated() { showModal.value = false; await load() }
-function goToEdit(id) { router.push(`/admin/events/${id}`) }
 
-async function handleDelete(id) {
-  if (!confirm('Are you sure you want to delete this event?')) return
-  try {
-    await deleteEvent(id)
-    events.value = events.value.filter(e => e.id !== id)
-  } catch (e) {
-    console.error('Delete failed:', e)
-    alert(e?.message || 'Failed to delete event')
-  }
+function applyFilters() {
+  // trigger computed refresh
 }
+
+const filteredEvents = computed(() => {
+  return events.value.filter(ev => {
+    // Search
+    if (filters.value.q) {
+      const q = filters.value.q.toLowerCase()
+      if (!ev.name.toLowerCase().includes(q) && !(ev.venue || '').toLowerCase().includes(q)) {
+        return false
+      }
+    }
+    // Date range
+    if (filters.value.from && new Date(ev.date) < new Date(filters.value.from)) return false
+    if (filters.value.to && new Date(ev.date) > new Date(filters.value.to)) return false
+    // Capacity
+    if (filters.value.capacity === 'small' && ev.capacity > 100) return false
+    if (filters.value.capacity === 'medium' && (ev.capacity < 101 || ev.capacity > 500)) return false
+    if (filters.value.capacity === 'large' && ev.capacity < 501) return false
+    return true
+  })
+})
 
 onMounted(load)
 </script>
 
 <style scoped>
-.icon-wrapper { width: 36px; height: 36px; cursor: pointer; }
-.material-icons { font-size: 20px; }
-.fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 </style>

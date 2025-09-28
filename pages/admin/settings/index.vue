@@ -9,53 +9,64 @@
 
       <!-- Tabs -->
       <nav class="max-w-7xl mx-auto flex overflow-x-auto gap-2 px-2 md:px-6 pb-2">
+        <!-- General Settings -->
         <button
-          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          :class="activeTab === 'currency'
+          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+          :class="activeTab === 'general'
             ? 'bg-red-600 text-white shadow'
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'"
-          @click="activeTab = 'currency'"
+          @click="activeTab = 'general'"
         >
-          <span class="material-icons text-[18px] mr-2">payments</span>Currency
+          <span class="material-icons text-[18px] mr-2">settings</span>
+          General Settings
         </button>
 
-        <!-- NEW: Venues -->
+        <!-- Venues -->
         <button
-          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
           :class="activeTab === 'venues'
             ? 'bg-red-600 text-white shadow'
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'"
           @click="activeTab = 'venues'"
         >
-          <span class="material-icons text-[18px] mr-2">location_on</span>Venues
+          <span class="material-icons text-[18px] mr-2">location_on</span>
+          Venues
         </button>
 
+        <!-- Users -->
         <button
-          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
           :class="activeTab === 'users'
             ? 'bg-red-600 text-white shadow'
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'"
           @click="activeTab = 'users'"
         >
-          <span class="material-icons text-[18px] mr-2">group</span>Users
+          <span class="material-icons text-[18px] mr-2">group</span>
+          Users
         </button>
+
+        <!-- Roles -->
         <button
-          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
           :class="activeTab === 'roles'
             ? 'bg-red-600 text-white shadow'
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'"
           @click="activeTab = 'roles'"
         >
-          <span class="material-icons text-[18px] mr-2">badge</span>Roles
+          <span class="material-icons text-[18px] mr-2">badge</span>
+          Roles
         </button>
+
+        <!-- Permissions -->
         <button
-          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
           :class="activeTab === 'permissions'
             ? 'bg-red-600 text-white shadow'
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'"
           @click="activeTab = 'permissions'"
         >
-          <span class="material-icons text-[18px] mr-2">admin_panel_settings</span>Permissions
+          <span class="material-icons text-[18px] mr-2">admin_panel_settings</span>
+          Permissions
         </button>
       </nav>
     </header>
@@ -64,15 +75,18 @@
     <main class="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-8">
 
       <!-- Currency -->
-      <section v-if="activeTab === 'currency'" class="bg-white border border-[#ccc] rounded-xl shadow-sm">
+      <section v-if="activeTab === 'general'" class="bg-white border border-[#ccc] rounded-xl shadow-sm">
         <div class="px-6 py-4 border-b border-[#ccc] flex items-center justify-between">
           <div>
-            <h3 class="text-lg font-semibold text-gray-900">Default Currency</h3>
-            <p class="text-sm text-gray-500">Choose the currency used for invoices and reports.</p>
+            <h3 class="text-lg font-semibold text-gray-900">Defaults</h3>
+            <p class="text-sm text-gray-500">
+              Choose the default currency and timezone for bookings, invoices and reports.
+            </p>
           </div>
         </div>
-        <div class="p-6 space-y-4">
-          <div class="grid md:grid-cols-2 gap-4">
+        <div class="p-6 space-y-6">
+          <div class="grid md:grid-cols-2 gap-6">
+            <!-- Currency -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Currency</label>
               <select v-model="currency"
@@ -82,14 +96,24 @@
                 </option>
               </select>
             </div>
-            <div class="flex items-center gap-3">
-              <button @click="saveCurrency"
-                class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">
-                Save
-              </button>
-              <span v-if="currencySuccess" class="text-green-600 text-sm">Saved!</span>
-              <span v-if="currencyError" class="text-red-600 text-sm">Error.</span>
+
+            <!-- Timezone -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+              <select v-model="timezone"
+                class="w-full rounded-md border border-[#ccc] px-3 py-2 shadow-sm focus:border-red-500 focus:ring-red-500">
+                <option v-for="tz in timezoneOptions" :key="tz" :value="tz">
+                  {{ tz }}
+                </option>
+              </select>
             </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button @click="saveSettings"
+              class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 cursor-pointer">
+              Save
+            </button>
           </div>
         </div>
       </section>
@@ -349,10 +373,7 @@
               <span class="text-sm">{{ perm.name }}</span>
             </label>
           </div>
-          <div class="mt-2">
-            <span v-if="permissionSuccess[role.id]" class="text-green-600 text-sm">✓ Saved</span>
-            <span v-if="permissionError[role.id]" class="text-red-600 text-sm">✕ Error</span>
-          </div>
+
         </div>
       </section>
 
@@ -368,15 +389,18 @@ import { useSettingsService }   from '~/composables/useSettingsService'
 import { useUserService }       from '~/composables/useUserService'
 import { usePermissionService } from '~/composables/usePermissionService'
 import { useVenueService }      from '~/composables/useVenueService'
+import { useNotification }      from '~/composables/useNotification'
+
+const { showNotification } = useNotification()
 
 /** Tabs **/
-const activeTab = ref('currency')
+const activeTab = ref('general')
 
-/** Currency **/
+/** Defaults (Currency + Timezone) **/
 const { getSettings, updateSettings } = useSettingsService()
-const currency        = ref('USD')
-const currencySuccess = ref(false)
-const currencyError   = ref(false)
+const currency = ref('USD')
+const timezone = ref('Asia/Kolkata')
+
 const currencyOptions = [
   { code: 'USD', name: 'US Dollar' },
   { code: 'INR', name: 'Indian Rupee' },
@@ -389,30 +413,70 @@ const currencyOptions = [
   { code: 'CNY', name: 'Chinese Yuan' },
   { code: 'AED', name: 'UAE Dirham' }
 ]
-async function loadCurrency() {
+
+const timezoneOptions = [
+  // 🌍 Common Global Timezonesd
+  'Asia/Kolkata',
+  'Asia/Dubai',
+  'Asia/Singapore',
+  'Europe/London',
+  'Europe/Paris',
+  'Australia/Sydney',
+
+  // 🇺🇸 All US Timezones
+  'America/New_York',      // Eastern
+  'America/Detroit',
+  'America/Kentucky/Louisville',
+  'America/Kentucky/Monticello',
+  'America/Indiana/Indianapolis',
+  'America/Indiana/Vincennes',
+  'America/Indiana/Winamac',
+  'America/Indiana/Marengo',
+  'America/Indiana/Petersburg',
+  'America/Indiana/Vevay',
+  'America/Chicago',       // Central
+  'America/Indiana/Tell_City',
+  'America/Indiana/Knox',
+  'America/Menominee',
+  'America/North_Dakota/Center',
+  'America/North_Dakota/New_Salem',
+  'America/North_Dakota/Beulah',
+  'America/Denver',        // Mountain
+  'America/Boise',
+  'America/Phoenix',       // Arizona (no DST)
+  'America/Los_Angeles',   // Pacific
+  'America/Anchorage',     // Alaska
+  'America/Juneau',
+  'America/Sitka',
+  'America/Metlakatla',
+  'America/Yakutat',
+  'America/Nome',
+  'America/Adak',          // Aleutian
+  'Pacific/Honolulu'       // Hawaii
+]
+
+async function loadSettings() {
   try {
     const s = await getSettings()
     currency.value = s.currency || 'USD'
+    timezone.value = s.timezone || 'Asia/Kolkata'
   } catch {
-    currencyError.value = true
+    showNotification('Failed to load settings', 'error')
   }
 }
-async function saveCurrency() {
+
+async function saveSettings() {
   try {
-    await updateSettings({ currency: currency.value })
-    currencySuccess.value = true
-    currencyError.value   = false
-  } catch {
-    currencySuccess.value = false
-    currencyError.value   = true
+    await updateSettings({ currency: currency.value, timezone: timezone.value })
+    showNotification('Settings saved successfully', 'success')
+  } catch (e) {
+    showNotification(e?.message || 'Failed to update settings', 'error')
   }
 }
 
 /** Venues **/
 const { fetchVenues, createVenue, updateVenue, deleteVenue } = useVenueService()
 const venues = ref([])
-const venuesError = ref(false)
-
 const venueForm = reactive({
   open: false,
   id: null,
@@ -423,8 +487,6 @@ const venueForm = reactive({
   isActive: true
 })
 const savingVenue  = ref(false)
-const venueSuccess = ref(false)
-const venueError   = ref('')
 
 function resetVenueForm() {
   venueForm.id = null
@@ -436,8 +498,6 @@ function resetVenueForm() {
 }
 function openVenueForm(v = null) {
   venueForm.open = true
-  venueError.value = ''
-  venueSuccess.value = false
   if (v) {
     venueForm.id = v.id
     venueForm.title = v.title
@@ -457,47 +517,59 @@ function cancelVenueForm() {
 async function loadVenues() {
   try {
     venues.value = await fetchVenues()
-    venuesError.value = false
   } catch {
-    venuesError.value = true
+    showNotification('Failed to load venues', 'error')
   }
 }
 
 async function saveVenue() {
-  if (!venueForm.title?.trim()) { venueError.value = 'Title is required'; return }
-  if (!venueForm.address?.trim()) { venueError.value = 'Address is required'; return }
-  if (!venueForm.zipcode?.trim()) { venueError.value = 'Zipcode is required'; return }
+  if (!venueForm.title?.trim()) { showNotification('Title is required', 'error'); return }
+  if (!venueForm.address?.trim()) { showNotification('Address is required', 'error'); return }
+  if (!venueForm.zipcode?.trim()) { showNotification('Zipcode is required', 'error'); return }
+
   savingVenue.value = true
-  venueError.value = ''
-  venueSuccess.value = false
   try {
+    let link = venueForm.mapLink?.trim() || ''
+
+    // 🔧 Fix bad prefixes like "https;//"
+    if (link && link.startsWith('https;//')) {
+      link = link.replace('https;//', 'https://')
+    }
+    // 🔧 Only keep it if it looks like a full URL
+    if (link && !/^https?:\/\//i.test(link)) {
+      link = `https://${link}`
+    }
+
     const payload = {
       title: venueForm.title.trim(),
       address: venueForm.address.trim(),
       zipcode: venueForm.zipcode.trim(),
-      mapLink: venueForm.mapLink?.trim() || undefined,
+      mapLink: link || undefined,
       isActive: !!venueForm.isActive
     }
+
     if (venueForm.id) await updateVenue(venueForm.id, payload)
     else await createVenue(payload)
 
-    venueSuccess.value = true
+    showNotification('Venue saved successfully', 'success')
     await loadVenues()
     cancelVenueForm()
   } catch (e) {
-    venueError.value = e?.message || 'Failed to save venue'
+    showNotification(e?.message || 'Failed to save venue', 'error')
   } finally {
     savingVenue.value = false
   }
 }
+
 
 async function onDeleteVenue(v) {
   if (!confirm(`Delete venue "${v.title}"?`)) return
   try {
     await deleteVenue(v.id)
     await loadVenues()
+    showNotification('Venue deleted', 'success')
   } catch (e) {
-    alert(e?.message || 'Failed to delete venue')
+    showNotification(e?.message || 'Failed to delete venue', 'error')
   }
 }
 
@@ -511,32 +583,22 @@ const {
 } = useUserService()
 
 const users       = ref([])
-const usersError  = ref(false)
 const newUser     = reactive({ email: '', password: '', roles: [] })
-const userSuccess = ref(false)
-const userError   = ref(false)
-
 const roles       = ref([])
-const rolesError  = ref(false)
-
 const newRole     = ref('')
-const roleSuccess = ref(false)
-const roleError   = ref(false)
 
 async function loadUsers() {
   try {
-    users.value      = await fetchUsers()
-    usersError.value = false
+    users.value = await fetchUsers()
   } catch {
-    usersError.value = true
+    showNotification('Failed to load users', 'error')
   }
 }
 async function loadRoles() {
   try {
-    roles.value      = await fetchRoles()
-    rolesError.value = false
+    roles.value = await fetchRoles()
   } catch {
-    rolesError.value = true
+    showNotification('Failed to load roles', 'error')
   }
 }
 
@@ -551,15 +613,13 @@ async function createUser() {
       password: newUser.password,
       roles:    newUser.roles
     })
-    userSuccess.value = true
-    userError.value   = false
+    showNotification('User created successfully', 'success')
     newUser.email     = ''
     newUser.password  = ''
     newUser.roles     = []
     await loadUsers()
-  } catch {
-    userSuccess.value = false
-    userError.value   = true
+  } catch (e) {
+    showNotification(e?.message || 'Failed to create user', 'error')
   }
 }
 function usersCellRoles(u) {
@@ -568,13 +628,11 @@ function usersCellRoles(u) {
 async function createRole() {
   try {
     await createRoleService({ name: newRole.value })
-    roleSuccess.value = true
-    roleError.value   = false
-    newRole.value     = ''
+    showNotification('Role created successfully', 'success')
+    newRole.value = ''
     await loadRoles()
-  } catch {
-    roleSuccess.value = false
-    roleError.value   = true
+  } catch (e) {
+    showNotification(e?.message || 'Failed to create role', 'error')
   }
 }
 
@@ -582,41 +640,33 @@ async function createRole() {
 const editingRoleId   = ref(null)
 const editingRoleName = ref('')
 const savingRole      = ref(false)
-const editRoleSuccess = ref(false)
-const editRoleError   = ref('')
 
 function startRoleEdit(role) {
   if (role.name.toLowerCase() === 'admin') return
   editingRoleId.value   = role.id
   editingRoleName.value = role.name
-  editRoleSuccess.value = false
-  editRoleError.value   = ''
 }
 function cancelRoleEdit() {
   editingRoleId.value   = null
   editingRoleName.value = ''
   savingRole.value      = false
-  editRoleSuccess.value = false
-  editRoleError.value   = ''
 }
 async function saveRoleEdit(role) {
   if (!editingRoleId.value) return
   const newName = editingRoleName.value.trim()
-  if (!newName) { editRoleError.value = 'Role name is required'; return }
+  if (!newName) { showNotification('Role name is required', 'error'); return }
   if (newName.toLowerCase() === 'admin') {
-    editRoleError.value = 'Cannot rename a role to "admin".'
+    showNotification('Cannot rename a role to "admin".', 'error')
     return
   }
   try {
     savingRole.value = true
-    editRoleError.value = ''
     await updateRoleService(editingRoleId.value, { name: newName })
     await loadRoles()
-    editRoleSuccess.value = true
+    showNotification('Role updated successfully', 'success')
     cancelRoleEdit()
   } catch (e) {
-    editRoleSuccess.value = false
-    editRoleError.value   = e?.message || 'Failed to update role'
+    showNotification(e?.message || 'Failed to update role', 'error')
   } finally {
     savingRole.value = false
   }
@@ -629,11 +679,8 @@ const {
   assignRolePermissions    // POST /roles/:id/permissions
 } = usePermissionService()
 
-const modules           = ref([])
-const modulesError      = ref(false)
-const rolePermissions   = reactive({})  // roleId -> Set<permId>
-const permissionSuccess = reactive({})
-const permissionError   = reactive({})
+const modules         = ref([])
+const rolePermissions = reactive({})  // roleId -> Set<permId>
 
 const permissionRoles = computed(() =>
   roles.value.filter(r => r.name.toLowerCase() !== 'admin')
@@ -646,33 +693,27 @@ function togglePermission(roleId, permId, isOn) {
 }
 
 async function savePermissions(roleId) {
-  permissionSuccess[roleId] = false
-  permissionError[roleId]   = false
   const selected = Array.from(rolePermissions[roleId] || [])
   try {
     await assignRolePermissions(roleId, selected)
-    permissionSuccess[roleId] = true
+    showNotification('Permissions updated successfully', 'success')
   } catch (e) {
-    permissionError[roleId] = true
+    showNotification(e?.message || 'Failed to save permissions', 'error')
   }
 }
 
 onMounted(async () => {
-  await loadCurrency()
+  await loadSettings()
   await loadUsers()
   await loadRoles()
-
-  // Venues
   await loadVenues()
 
-  // load permission modules
   try {
     modules.value = await fetchModules()
   } catch {
-    modulesError.value = true
+    showNotification('Failed to load permission modules', 'error')
   }
 
-  // load each role’s assigned permission IDs
   for (const r of permissionRoles.value) {
     try {
       const ids = await fetchRolePermissions(r.id)

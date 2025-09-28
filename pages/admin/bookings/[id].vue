@@ -1,3 +1,5 @@
+<!-- .pages/admin/bookings/[id].vue -->
+
 <template>
   <div class="p-6 bg-[#F8F9FA] min-h-screen">
     <div class="mx-auto w-full bg-white rounded-lg shadow">
@@ -301,6 +303,7 @@ import { useRoute, useRouter, useRuntimeConfig } from '#app'
 import { useBookingService } from '@/composables/useBookingService'
 import { useNotification } from '@/composables/useNotification'
 import { useSettingsService } from '@/composables/useSettingsService'
+import { formatDate, formatTime } from '@/utils/timezone'
 
 const route = useRoute()
 const router = useRouter()
@@ -320,10 +323,8 @@ const deleting = ref(false)
 
 const settingsCurrency = ref('INR')
 
-// Pooja+Priest options (poojas include their assigned priests)
-const poojaOptions = ref([]) // [{id, name, priests:[{id,name}, ...]}]
+const poojaOptions = ref([])
 
-// Edit form state
 const editForm = ref({
   poojaId: null,
   priestId: null,
@@ -339,13 +340,11 @@ const editForm = ref({
   venueZip: ''
 })
 
-// Filtered priest options for the selected pooja
 const currentPriestOptions = computed(() => {
   const p = poojaOptions.value.find(x => x.id === editForm.value.poojaId)
   return p?.priests || []
 })
 
-/* Utilities */
 function currencySymbol(code) {
   const map = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'د.إ' }
   return map[code] || '₹'
@@ -362,33 +361,19 @@ function formatMoney(amount, code) {
     return `${currencySymbol(code)}${Number(amount).toLocaleString()}`
   }
 }
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
-}
-function formatTime(iso) {
-  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-}
 function toLocalInput(iso) {
   if (!iso) return ''
   const d = new Date(iso)
   const pad = (n) => String(n).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  const mm = pad(d.getMonth() + 1)
-  const dd = pad(d.getDate())
-  const hh = pad(d.getHours())
-  const mi = pad(d.getMinutes())
-  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 function toIso(localValue) {
   if (!localValue) return null
-  const d = new Date(localValue)
-  return d.toISOString()
+  return new Date(localValue).toISOString()
 }
 
-/* Load poojas (including assigned priests) */
 async function loadPoojas() {
   const res = await fetch(`${config.apiBase}/pooja?include=priests`)
-  if (!res.ok) throw new Error('Failed to load poojas')
   const data = await res.json()
   poojaOptions.value = (data || []).map(p => ({
     id: p.id,
@@ -397,7 +382,6 @@ async function loadPoojas() {
   }))
 }
 
-/* Modal handlers */
 function openEdit() {
   if (!booking.value) return
   const b = booking.value
@@ -415,47 +399,21 @@ function openEdit() {
     venueState: b.venueState || '',
     venueZip: b.venueZip || ''
   }
-
-  const validPriests = currentPriestOptions.value
-  if (validPriests.length && !validPriests.some(pr => pr.id === editForm.value.priestId)) {
-    editForm.value.priestId = validPriests[0].id
-  }
-
   showEdit.value = true
 }
-function closeEdit() {
-  showEdit.value = false
-}
+function closeEdit() { showEdit.value = false }
 
-/* Keep priest in sync with selected pooja */
 watch(() => editForm.value.poojaId, () => {
   const validPriests = currentPriestOptions.value
-  if (!validPriests.length) {
-    editForm.value.priestId = null
-    return
-  }
+  if (!validPriests.length) editForm.value.priestId = null
   if (!validPriests.some(pr => pr.id === editForm.value.priestId)) {
-    editForm.value.priestId = validPriests[0].id
+    editForm.value.priestId = validPriests[0]?.id || null
   }
 })
 
-/* Actions */
 async function submitEdit() {
   try {
     saving.value = true
-
-    if (!editForm.value.poojaId) {
-      showNotification('Please select a pooja', 'error'); saving.value = false; return
-    }
-    if (!editForm.value.priestId) {
-      showNotification('Please select a priest', 'error'); saving.value = false; return
-    }
-    if (!currentPriestOptions.value.some(pr => pr.id === editForm.value.priestId)) {
-      showNotification('Selected priest is not assigned to the selected pooja', 'error')
-      saving.value = false
-      return
-    }
-
     const patch = {
       poojaId: Number(editForm.value.poojaId),
       priestId: Number(editForm.value.priestId),
@@ -470,9 +428,7 @@ async function submitEdit() {
       venueState: editForm.value.venueState || undefined,
       venueZip: editForm.value.venueZip || undefined
     }
-
-    const updated = await updateBooking(route.params.id, patch)
-    booking.value = updated
+    booking.value = await updateBooking(route.params.id, patch)
     showNotification('Booking updated successfully')
     closeEdit()
   } catch (e) {
@@ -484,35 +440,23 @@ async function submitEdit() {
 
 async function onDelete() {
   if (!booking.value) return
-  if (!confirm(`Delete booking #${booking.value.id}? This cannot be undone.`)) return
+  if (!confirm(`Delete booking #${booking.value.id}?`)) return
   try {
     deleting.value = true
     await deleteBooking(booking.value.id)
     showNotification('Booking deleted')
     router.push('/admin/bookings')
-  } catch (e) {
-    showNotification(e.message || 'Failed to delete booking', 'error')
   } finally {
     deleting.value = false
   }
 }
 
-/* Load */
 onMounted(async () => {
   try {
-    await Promise.all([
-      (async () => {
-        // settings first (currency)
-        try {
-          const s = await getSettings()
-          settingsCurrency.value = s?.currency || 'INR'
-        } catch {
-          settingsCurrency.value = 'INR'
-        }
-      })(),
-      (async () => { booking.value = await getBookingById(route.params.id) })(),
-      loadPoojas()
-    ])
+    const s = await getSettings()
+    settingsCurrency.value = s?.currency || 'INR'
+    booking.value = await getBookingById(route.params.id)
+    await loadPoojas()
   } catch (err) {
     error.value = err.message || String(err)
   } finally {
@@ -520,6 +464,7 @@ onMounted(async () => {
   }
 })
 </script>
+
 
 <style scoped>
 .fade-enter-active,
