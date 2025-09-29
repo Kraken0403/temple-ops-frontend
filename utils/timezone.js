@@ -43,3 +43,11 @@ export function formatDateTime(iso, fmt = 'yyyy-LL-dd HH:mm') {
 export function formatTime(iso, fmt = 'HH:mm') {
   return formatWithTZ(iso, fmt)
 }
+
+export function normalizeYMDToUTC(ymd) {
+  return DateTime.fromISO(ymd, { zone: cachedTZ })
+    .startOf('day')
+    .toUTC()
+    .toISO()
+}
+

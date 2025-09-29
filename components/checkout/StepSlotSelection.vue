@@ -106,6 +106,7 @@ import { ref, watch, onMounted, computed } from 'vue'
 import { useRuntimeConfig } from '#app'
 import { usePriestService } from '@/composables/usePriestService'
 import { toLocalYMD } from '@/utils/date'
+import { normalizeYMDToUTC } from '@/utils/timezone'
 import { formatDate, formatTime } from '@/utils/timezone'
 
 const props = defineProps({ pooja: { type: Object, required: true } })
@@ -141,7 +142,9 @@ function onPriestPicked(id) {}
 function onDateChange(e) {}
 
 watch(selectedSlot, slot => {
-  if (slot) emit('update-slot', { slot, bookingDate: selectedDate.value })
+  if (slot) {
+    emit('update-slot', { slot, bookingDate: normalizeYMDToUTC(selectedDate.value) })
+  }
 })
 
 watch([selectedDate, selectedPriestId], async () => {

@@ -22,7 +22,7 @@
 
       <div class="bg-[#f2f2f2] p-[10px]">
         <dt class="font-medium text-gray-500">Date</dt>
-        <dd class="mt-1 text-gray-800">{{ formatDate(selectedSlot.bookingDate, 'EEE, dd LLL yyyy') }}</dd>
+        <dd class="mt-1 text-gray-800">  {{ formatDate(selectedSlot.bookingDate, 'EEE, dd LLL yyyy') }}</dd>
       </div>
 
       <div class="bg-[#f2f2f2] p-[10px]" v-if="user">
