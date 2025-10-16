@@ -17,8 +17,8 @@
           <!-- Image -->
           <div class="w-24 h-24 flex-shrink-0 rounded bg-gray-100 overflow-hidden border border-gray-400">
             <img
-              v-if="item.event.imageUrl"
-              :src="fullImageUrl(item.event.imageUrl)"
+              v-if="imageSrc(item.event)"
+              :src="imageSrc(item.event)"
               alt="Event Image"
               class="w-full h-full object-cover"
             />
@@ -66,27 +66,55 @@
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 
 import { ref, onMounted } from 'vue'
-import { useRouter, useRuntimeConfig } from '#app'
+import { useRouter } from '#app'
 import { useEventsService } from '~/composables/useEventsService'
 import { useEventBookingService } from '~/composables/useEventBookingService'
+import { useMediaService } from '@/composables/useMediaService'
 import { formatDate } from '@/utils/timezone'
 
 const router = useRouter()
-const config = useRuntimeConfig().public
 const { fetchEvents } = useEventsService()
 const { fetchBookings } = useEventBookingService()
+const { fullUrl } = useMediaService()
 
 const eventsWithCount = ref([])
 const loading = ref(true)
 const error = ref(false)
 
-function fullImageUrl(path) {
-  return path.startsWith('http') ? path : `${config.apiBase}${path}`
+/**
+ * Resolve a display image URL for an event.
+ * Order of preference:
+ * 1) featuredMedia.url/path
+ * 2) photoUrl
+ * 3) first gallery media url/path (if your API includes it here)
+ * Adds `?v=` cache buster from updatedAt fields.
+ */
+function imageSrc(ev) {
+  const rel =
+    ev?.featuredMedia?.url ||
+    ev?.featuredMedia?.path ||
+    ev?.photoUrl ||
+    ev?.gallery?.[0]?.media?.url ||
+    ev?.gallery?.[0]?.media?.path ||
+    ''
+
+  if (!rel) return ''
+
+  const base = fullUrl(rel)
+  const ver =
+    ev?.featuredMedia?.updatedAt ||
+    ev?.updatedAt ||
+    ev?.gallery?.[0]?.media?.updatedAt ||
+    Date.now()
+
+  // Append cache-buster safely whether or not URL already contains a query string
+  return `${base}${base.includes('?') ? '&' : '?'}v=${encodeURIComponent(ver)}`
 }
 
 async function loadData() {
   loading.value = true
   try {
+    // Your EventsService.findAll() already includes featuredMedia and (optionally) venueRel.
     const evs = await fetchEvents()
     const counts = await Promise.all(
       evs.map(e => fetchBookings(e.id).then(b => b.length).catch(() => 0))

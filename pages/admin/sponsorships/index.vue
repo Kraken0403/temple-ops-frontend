@@ -17,6 +17,10 @@
             <th class="px-4 py-3 text-left">Name</th>
             <th class="px-4 py-3 text-left">Description</th>
             <th class="px-4 py-3 text-left">Price</th>
+            <th class="px-4 py-3 text-left">Starts</th>
+            <th class="px-4 py-3 text-left">Ends</th>
+            <th class="px-4 py-3 text-left">Active</th>
+            <th class="px-4 py-3 text-left">Default Slots</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
@@ -34,6 +38,25 @@
               </span>
               <span v-else>Not specified</span>
             </td>
+
+            <td class="px-4 py-3">
+              {{ fmtDateTime(s.startsAt) || '—' }}
+            </td>
+            <td class="px-4 py-3">
+              {{ fmtDateTime(s.endsAt) || '—' }}
+            </td>
+            <td class="px-4 py-3">
+              <span
+                class="px-2 py-0.5 rounded text-xs"
+                :class="s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+              >
+                {{ s.isActive ? 'Yes' : 'No' }}
+              </span>
+            </td>
+            <td class="px-4 py-3">
+              {{ s.defaultMaxSlots ?? '—' }}
+            </td>
+
             <td class="px-4 py-3">
               <div class="flex items-center justify-end gap-2">
                 <button
@@ -52,7 +75,7 @@
             </td>
           </tr>
           <tr v-if="!sponsorships.length">
-            <td colspan="4" class="px-4 py-8 text-center text-gray-500">No sponsorships yet.</td>
+            <td colspan="8" class="px-4 py-8 text-center text-gray-500">No sponsorships yet.</td>
           </tr>
         </tbody>
       </table>
@@ -73,23 +96,31 @@ definePageMeta({ layout: 'admin', middleware: 'auth' })
 
 import { ref, onMounted } from 'vue'
 import { useSponsorshipService } from '~/composables/useSponsorshipService'
-import { useSettingsService } from '~/composables/useSettingsService' // assumes you already have getSettings() here
+import { useSettingsService } from '~/composables/useSettingsService'
 import UtilsBar from '~/components/UtilsBar.vue'
 import SponsorshipModal from '~/components/sponsorship/AddSponsorshipModal.vue'
 
 const { fetchSponsorshipTypes, deleteSponsorshipType } = useSponsorshipService()
-const { getSettings } = useSettingsService?.() || { getSettings: async () => ({ currency: 'INR' }) }
+const { getSettings } = useSettingsService()
 
 const sponsorships = ref([])
 const error = ref(null)
 const showModal = ref(false)
-const editing = ref(null) // holds the sponsorship being edited or null
+const editing = ref(null)
 const settings = ref('INR')
 
 function currencySymbol(code) {
   if (!code) return '₹'
   const map = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'د.إ' }
   return map[code] || '₹'
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    return d.toLocaleString()
+  } catch { return '' }
 }
 
 function openCreate() {
@@ -113,11 +144,11 @@ async function confirmDelete(item) {
   const ok = window.confirm(`Delete "${item.name}"? This cannot be undone.`)
   if (!ok) return
   try {
-    await deleteSponsorshipType(item.id) // safe delete; will 400 if assigned anywhere
+    await deleteSponsorshipType(item.id)
     await reload()
   } catch (err) {
     console.error('❌ Delete failed:', err)
-    alert(err?.response?._data?.message || 'Failed to delete. If this type is assigned to events, remove assignments first or use force delete in API.')
+    alert('Failed to delete. If this type is assigned to events, remove assignments first or use force delete in API.')
   }
 }
 
@@ -134,8 +165,7 @@ onMounted(async () => {
   try {
     const s = await getSettings()
     settings.value = s?.currency || 'INR'
-  } catch (e) {
-    console.error('Could not load settings:', e)
+  } catch {
     settings.value = 'INR'
   }
   await reload()

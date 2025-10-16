@@ -194,10 +194,11 @@
   const saving = ref(false)
   
   const prettyTitle = computed(() =>
-    props.slug === 'privacy' ? 'Privacy Policy'
-    : props.slug === 'terms' ? 'Terms & Conditions'
-    : 'Static'
-  )
+  props.slug === 'privacy' ? 'Privacy Policy'
+  : props.slug === 'terms' ? 'Terms & Conditions'
+  : props.slug === 'cancellation' ? 'Cancellation & Refund Policy'
+  : 'Static'
+)
   
   // Defaults per page
   function defaultContent() {

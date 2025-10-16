@@ -11,11 +11,12 @@
         </p>
       </div>
 
-      <!-- Cards -->
+      <!-- Cards + Newsletter -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Render only first two regular cards -->
         <div
-          v-for="(card, i) in resolvedCards"
-          :key="i"
+          v-for="(card, i) in resolvedCards.slice(0, 2)"
+          :key="`card-${i}`"
           class="relative p-8 shadow rounded-[0px] transition hover:shadow-md cursor-pointer"
           :class="card.variant === 'light' ? 'bg-[#F4F1EC] text-[#111]' : 'text-white'"
           :style="card.variant === 'image' ? bgStyle(card.bgImage) : undefined"
@@ -27,7 +28,10 @@
             aria-hidden="true"
           ></div>
 
-          <div class="flex justify-between flex-col gap-[10px] mb-[60px]" :class="card.variant === 'image' ? 'relative z-[1]' : ''">
+          <div
+            class="flex justify-between flex-col gap-[10px] mb-[60px]"
+            :class="card.variant === 'image' ? 'relative z-[1]' : ''"
+          >
             <i class="material-icons text-[32px]"
                :class="card.variant === 'light' ? 'text-[#570000]' : ''">
               {{ card.icon }}
@@ -53,6 +57,9 @@
             </NuxtLink>
           </div>
         </div>
+
+        <!-- Newsletter card replaces the old "Contact Us" slot -->
+        <NewsletterSubscribe />
       </div>
     </div>
   </section>
@@ -61,14 +68,9 @@
 <script setup>
 import { computed } from 'vue'
 import { useRuntimeConfig } from '#app'
+import NewsletterSubscribe from '@/components/NewsLetterSubscribe.vue'
 import contactFallback from '@/assets/images/contact.png'
 
-/**
- * Props expected from CMS (matches HomeEditor.vue):
- * heading: String
- * intro: String
- * cards: Array<{ title, icon, description, link, variant: 'light'|'image', bgImage }>
- */
 const props = defineProps({
   heading: { type: String, default: '' },
   intro: { type: String, default: '' },
@@ -86,17 +88,18 @@ function fullUrl(path) {
   return path.startsWith('http') ? path : `${apiBase}${path}`
 }
 
-/* ---------- Fallbacks (your current static content) ---------- */
+/* ---------- Fallbacks ---------- */
 const fallbackHeading = 'Join us in improving the overall experience'
 const fallbackIntro =
   'We are a Hindu Temple located in Tampa, conceived as place of worship and cultural growth for our community; A place to educate our children'
 
+// Kept only two regular cards; the third will be the subscribe widget
 const fallbackCards = [
   {
     title: 'Donate',
     icon: 'attach_money',
     description:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc quam lectus, luctus sed feugiat nec, cursus a nibh. Duis quis placerat ipsum.',
+      'Contribute to support our temple activities and community initiatives.',
     link: '/donations',
     variant: 'light',
     bgImage: ''
@@ -105,28 +108,20 @@ const fallbackCards = [
     title: 'Volunteer',
     icon: 'volunteer_activism',
     description:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc quam lectus, luctus sed feugiat nec, cursus a nibh. Duis quis placerat ipsum.',
-    link: '/donations',
+      'Join our volunteer programs and help us serve the community better.',
+    link: '/volunteer',
     variant: 'light',
     bgImage: ''
-  },
-  {
-    title: 'Contact Us',
-    icon: 'contact_page',
-    description:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc quam lectus, luctus sed feugiat nec, cursus a nibh. Duis quis placerat ipsum.',
-    link: '/contact',
-    variant: 'image',
-    bgImage: contactFallback
   }
 ]
 
-/* ---------- Resolve CMS data with safe coercions ---------- */
+/* ---------- Resolve CMS data ---------- */
 const resolvedHeading = computed(() => props.heading?.trim() || fallbackHeading)
 const resolvedIntro = computed(() => props.intro?.trim() || fallbackIntro)
 
 const resolvedCards = computed(() => {
   const input = Array.isArray(props.cards) ? props.cards : []
+  // We’ll map and then take first 2; subscribe will always be the 3rd block
   const cleaned = input
     .map((c) => {
       const variant = c?.variant === 'image' ? 'image' : 'light'
@@ -142,7 +137,7 @@ const resolvedCards = computed(() => {
     })
     .filter((c) => c.title && c.description && c.link)
 
-  // if CMS empty/invalid, fallback to static 3 cards
+  // If CMS empty/invalid, fallback to 2 cards
   return cleaned.length ? cleaned : fallbackCards
 })
 

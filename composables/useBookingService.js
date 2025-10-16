@@ -1,17 +1,21 @@
 // composables/useBookingService.js
-import { useRuntimeConfig } from '#app'
+import { useRuntimeConfig, useCookie } from '#app'
 
 export const useBookingService = () => {
-  const config = useRuntimeConfig().public
-  const base = `${config.apiBase}/booking`
+  const { apiBase } = useRuntimeConfig().public
+  const base = `${apiBase}/booking`
 
+  const headers = () => {
+    const t = useCookie('token').value
+    const h = { 'Content-Type': 'application/json' }
+    if (t) h.Authorization = `Bearer ${t}`
+    return h
+  }
+
+  const safeJson = async (res) => { try { return await res.json() } catch { return null } }
   const parseOrThrow = async (res, fallbackMsg) => {
-    let data = null
-    try { data = await res.json() } catch { /* ignore parse errors */ }
-    if (!res.ok) {
-      const msg = (data && (data.message || data.error)) || fallbackMsg
-      throw new Error(msg)
-    }
+    const data = await safeJson(res)
+    if (!res.ok) throw new Error(data?.message || data?.error || fallbackMsg || `HTTP ${res.status}`)
     return data
   }
 
@@ -19,7 +23,7 @@ export const useBookingService = () => {
   const submitBooking = async (payload) => {
     const res = await fetch(base, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers(),
       body: JSON.stringify(payload),
     })
     return parseOrThrow(res, 'Booking failed')
@@ -27,7 +31,7 @@ export const useBookingService = () => {
 
   // READ (single)
   const getBookingById = async (id) => {
-    const res = await fetch(`${base}/${id}`)
+    const res = await fetch(`${base}/${id}`, { headers: headers() })
     return parseOrThrow(res, 'Failed to fetch booking')
   }
 
@@ -41,7 +45,7 @@ export const useBookingService = () => {
           )
         ).toString()
       : ''
-    const res = await fetch(`${base}${qs}`)
+    const res = await fetch(`${base}${qs}`, { headers: headers() })
     return parseOrThrow(res, 'Failed to fetch bookings')
   }
 
@@ -49,23 +53,24 @@ export const useBookingService = () => {
   const updateBooking = async (id, patch) => {
     const res = await fetch(`${base}/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers(),
       body: JSON.stringify(patch),
     })
     return parseOrThrow(res, 'Failed to update booking')
   }
 
-  // UPDATE (status only, convenience)
+  // UPDATE (status only)
   const updateBookingStatus = async (id, status) => {
     const res = await fetch(`${base}/${id}/status/${encodeURIComponent(status)}`, {
       method: 'PATCH',
+      headers: headers(),
     })
     return parseOrThrow(res, 'Failed to update booking status')
   }
 
   // DELETE
   const deleteBooking = async (id) => {
-    const res = await fetch(`${base}/${id}`, { method: 'DELETE' })
+    const res = await fetch(`${base}/${id}`, { method: 'DELETE', headers: headers() })
     await parseOrThrow(res, 'Failed to delete booking')
     return { ok: true }
   }

@@ -1,4 +1,4 @@
-<!-- .pages/admin/bookings/index.vue -->
+<!-- pages/admin/bookings/index.vue -->
 <template>
   <section class="p-6 max-w-full mx-auto">
     <!-- Header + Controls -->
@@ -12,6 +12,7 @@
           type="text"
           placeholder="Search bookings…"
           class="border px-3 py-2 rounded w-full sm:w-64"
+          @keyup.enter="currentPage = 1"
         />
 
         <!-- Booking-Date Range -->
@@ -20,16 +21,18 @@
           type="date"
           class="border px-3 py-2 rounded"
           placeholder="From"
+          @change="currentPage = 1"
         />
         <input
           v-model="dateTo"
           type="date"
           class="border px-3 py-2 rounded"
           placeholder="To"
+          @change="currentPage = 1"
         />
 
         <!-- Priest Filter (snapshot) -->
-        <select v-model="selectedPriest" class="border px-3 py-2 rounded">
+        <select v-model="selectedPriest" class="border px-3 py-2 rounded" @change="currentPage = 1">
           <option value="">All Priests</option>
           <option v-for="priest in priestOptions" :key="priest" :value="priest">
             {{ priest }}
@@ -37,7 +40,7 @@
         </select>
 
         <!-- Status Filter -->
-        <select v-model="selectedStatus" class="border px-3 py-2 rounded">
+        <select v-model="selectedStatus" class="border px-3 py-2 rounded" @change="currentPage = 1">
           <option value="">All Statuses</option>
           <option v-for="s in statusOptions" :key="s" :value="s">
             {{ s }}
@@ -86,10 +89,28 @@
             class="odd:bg-white even:bg-gray-50 hover:bg-blue-50 cursor-pointer transition"
             @click="goToBooking(booking.id)"
           >
-            <td class="px-4 py-3">#{{ booking.id }}</td>
-            <td class="px-4 py-3">{{ booking.poojaNameAtBooking || booking.pooja?.name || '—' }}</td>
-            <td class="px-4 py-3">{{ booking.priestNameAtBooking || booking.priest?.name || '—' }}</td>
-            <td class="px-4 py-3">{{ booking.status }}</td>
+            <td class="px-4 py-3" @click.stop>
+              <NuxtLink
+                :to="`/admin/bookings/${booking.id}`"
+                class="text-blue-600 hover:underline"
+              >
+                #{{ booking.id }}
+              </NuxtLink>
+            </td>
+            <td class="px-4 py-3">
+              {{ booking.poojaNameAtBooking || booking.pooja?.name || '—' }}
+            </td>
+            <td class="px-4 py-3">
+              {{ booking.priestNameAtBooking || booking.priest?.name || '—' }}
+            </td>
+            <td class="px-4 py-3">
+              <span
+                class="px-2 py-0.5 rounded text-xs"
+                :class="statusClass(booking.status)"
+              >
+                {{ booking.status }}
+              </span>
+            </td>
             <td class="px-4 py-3">{{ formatDate(booking.bookingDate) }}</td>
             <td class="px-4 py-3">{{ formatDateTime(booking.start) }}</td>
             <td class="px-4 py-3">{{ formatDateTime(booking.end) }}</td>
@@ -127,12 +148,14 @@
 <script setup>
 definePageMeta({ layout: 'admin', middleware: 'auth' })
 
-import { ref, computed, onMounted } from 'vue'
-import { useBookingService } from '@/composables/useBookingService'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from '#app'
+import { useBookingService } from '@/composables/useBookingService'
 import { useSettingsService } from '@/composables/useSettingsService'
 import { formatDate, formatDateTime } from '@/utils/timezone'
+import * as XLSX from 'xlsx'
 
+const router = useRouter()
 const { getAllBookings } = useBookingService()
 const { getSettings } = useSettingsService()
 
@@ -150,8 +173,6 @@ const itemsPerPage    = 15
 
 const settingsCurrency = ref('INR')
 
-const router = useRouter()
-
 const priestOptions = computed(() =>
   [...new Set(bookings.value.map(b => b.priestNameAtBooking || b.priest?.name).filter(Boolean))]
 )
@@ -166,11 +187,17 @@ const filteredBookings = computed(() => {
       b.id,
       b.poojaNameAtBooking || b.pooja?.name,
       b.priestNameAtBooking || b.priest?.name,
-      b.status
-    ].filter(Boolean).join(' ').toLowerCase()
+      b.status,
+      b.userName,
+      b.userEmail,
+      b.userPhone
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
 
     const matchSearch = !term || hay.includes(term)
-    const priestName = b.priestNameAtBooking || b.priest?.name
+    const priestName  = b.priestNameAtBooking || b.priest?.name
     const matchPriest = !selectedPriest.value || priestName === selectedPriest.value
     const matchStatus = !selectedStatus.value || b.status === selectedStatus.value
 
@@ -195,21 +222,26 @@ onMounted(async () => {
     const s = await getSettings()
     settingsCurrency.value = s?.currency || 'INR'
     bookings.value = await getAllBookings()
-  } catch {
+  } catch (e) {
+    console.error(e)
     error.value = true
   } finally {
     loading.value = false
   }
 })
 
+// reset to page 1 whenever filters change
+watch([searchTerm, dateFrom, dateTo, selectedPriest, selectedStatus], () => {
+  currentPage.value = 1
+})
+
 function goToPage(page) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page
-  }
+  if (page >= 1 && page <= totalPages.value) currentPage.value = page
 }
 function goToBooking(id) {
   router.push(`/admin/bookings/${id}`)
 }
+
 function currencySymbol(code) {
   const map = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'د.إ' }
   return map[code] || '₹'
@@ -225,5 +257,40 @@ function formatMoney(amount, code) {
   } catch {
     return `${currencySymbol(code)}${Number(amount).toLocaleString()}`
   }
+}
+
+/** ✅ Status → Tailwind chip classes */
+function statusClass(s) {
+  const key = String(s || '').toLowerCase()
+  if (key === 'confirmed') return 'bg-green-100 text-green-700'
+  if (key === 'completed') return 'bg-emerald-100 text-emerald-700'
+  if (key === 'pending')   return 'bg-yellow-100 text-yellow-800'
+  if (key === 'canceled')  return 'bg-red-100 text-red-700'
+  return 'bg-gray-100 text-gray-700'
+}
+
+/* ─────────────── 🟢 Excel Export ─────────────── */
+function downloadXLSX() {
+  if (!filteredBookings.value.length) return
+
+  const data = filteredBookings.value.map(b => ({
+    'Booking ID'   : b.id,
+    'Pooja Name'   : b.poojaNameAtBooking || b.pooja?.name || '',
+    'Priest Name'  : b.priestNameAtBooking || b.priest?.name || '',
+    'Status'       : b.status,
+    'Booking Date' : formatDate(b.bookingDate),
+    'Start Time'   : formatDateTime(b.start),
+    'End Time'     : formatDateTime(b.end),
+    'Amount'       : formatMoney(b.amountAtBooking, settingsCurrency.value),
+    'User Name'    : b.userName || '',
+    'User Email'   : b.userEmail || '',
+    'User Phone'   : b.userPhone || '',
+    'Venue Address': b.venueAddress || '',
+  }))
+
+  const worksheet = XLSX.utils.json_to_sheet(data)
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Pooja Bookings')
+  XLSX.writeFile(workbook, `pooja_bookings_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 </script>

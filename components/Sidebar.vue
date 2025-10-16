@@ -7,26 +7,32 @@
     <div class="h-full flex flex-col">
       <!-- Scrollable area -->
       <nav class="flex-1 overflow-y-auto p-4 space-y-2 text-sm">
-        <img class="mb-5 max-w-[140px]" src="../assets/images/logo.png" alt="Logo" />
+        <img class="mb-5 max-w-[140px]" src="../assets/images/logo.png" alt="Logo" />       
 
-        <!-- BOOKINGS -->
         <NavItem
-          v-if="userPerms.has('Bookings')"
+          v-if="hasPerm('Bookings')"
           to="/admin/bookings"
           label="Bookings"
           icon="event"
         />
 
+        <NavItem
+          v-if="isPriest"
+          to="/admin/priest/dashboard"
+          label="My Dashboard"
+          icon="dashboard"
+        />
+
         <!-- POOJAS -->
         <NavItem
-          v-if="userPerms.has('Poojas')"
+          v-if="hasPerm('Poojas')"
           to="/admin/poojas"
           label="Poojas"
           icon="local_fire_department"
         />
 
         <!-- EVENTS -->
-        <div v-if="userPerms.has('Events')" class="mt-3">
+        <div v-if="hasPerm('Events')" class="mt-3">
           <button
             @click="isEventsOpen = !isEventsOpen"
             class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
@@ -41,14 +47,14 @@
           </button>
           <ul v-if="isEventsOpen" class="ml-6 mt-2 space-y-1 text-sm">
             <li><NavItem to="/admin/events" label="All Events" icon="list" /></li>
-            <li v-if="userPerms.has('Bookings')">
+            <li v-if="hasPerm('Bookings')">
               <NavItem to="/admin/events/bookings" label="Bookings" icon="book_online" />
             </li>
           </ul>
         </div>
 
         <!-- PRIESTS -->
-        <div v-if="userPerms.has('Priests')" class="mt-3">
+        <div v-if="hasPerm('Priests')" class="mt-3">
           <button
             @click="isPriestsOpen = !isPriestsOpen"
             class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
@@ -68,7 +74,7 @@
         </div>
 
         <!-- SPONSORSHIPS -->
-        <div v-if="userPerms.has('Sponsorships')" class="mt-3">
+        <div v-if="hasPerm('Sponsorships')" class="mt-3">
           <button
             @click="isSponsorshipsOpen = !isSponsorshipsOpen"
             class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
@@ -83,14 +89,14 @@
           </button>
           <ul v-if="isSponsorshipsOpen" class="ml-6 mt-2 space-y-1 text-sm">
             <li><NavItem to="/admin/sponsorships" label="Sponsorships" icon="list_alt" /></li>
-            <li v-if="userPerms.has('Bookings')">
+            <li v-if="hasPerm('Bookings')">
               <NavItem to="/admin/sponsorships/bookings" label="Bookings" icon="book_online" />
             </li>
           </ul>
         </div>
 
         <!-- DONATIONS -->
-        <div v-if="userPerms.has('Donations')" class="mt-3">
+        <div v-if="hasPerm('Donations')" class="mt-3">
           <button
             @click="isDonationsOpen = !isDonationsOpen"
             class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
@@ -128,15 +134,23 @@
             <li><NavItem to="/admin/static-pages/about" label="About" icon="info" /></li>
             <li><NavItem to="/admin/static-pages/gallery" label="Gallery" icon="photo_library" /></li>
             <li><NavItem to="/admin/static-pages/bhajans" label="Bhajans" icon="queue_music" /></li>
-            <!-- Add these if you want quick access -->
             <li><NavItem to="/admin/static-pages/privacy" label="Privacy Policy" icon="policy" /></li>
             <li><NavItem to="/admin/static-pages/terms" label="Terms & Conditions" icon="gavel" /></li>
           </ul>
         </div>
 
+
+
+        <!-- COUPONS (single tab, right above Settings) -->
+        <NavItem
+          to="/admin/coupons"
+          label="Coupons"
+          icon="local_offer"
+        />
+
         <!-- SETTINGS -->
         <NavItem
-          v-if="userPerms.has('Settings')"
+          v-if="hasPerm('Settings')"
           to="/admin/settings"
           label="Settings"
           icon="settings"
@@ -157,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref, watchEffect, onMounted } from 'vue'
+import { ref, watchEffect, onMounted, computed } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { usePermissionService } from '~/composables/usePermissionService'
 import { useUserService } from '~/composables/useUserService'
@@ -172,9 +186,11 @@ const auth = useAuth()
 const { fetchModules, fetchRolePermissions } = usePermissionService()
 const { fetchRoles } = useUserService()
 
-const allPermissions = ref([])
+const allPermissions = ref([])     // [{id, name, ...}]
 const allRoles = ref([])
-const userPerms = ref(new Set())
+
+// store user perms in LOWERCASE for case-insensitive checks
+const userPermsLc = ref(new Set())
 
 const isEventsOpen = ref(false)
 const isPriestsOpen = ref(false)
@@ -192,25 +208,37 @@ onMounted(async () => {
 })
 
 watchEffect(async () => {
-  userPerms.value.clear()
+  userPermsLc.value = new Set()
   const me = auth.user.value
   if (!me || !Array.isArray(me.roles) || allRoles.value.length === 0) return
 
   await Promise.all(
     me.roles.map(async roleName => {
-      const roleObj = allRoles.value.find(r => r.name === roleName)
+      const roleObj = allRoles.value.find(r => r.name === roleName || r.name === roleName?.name)
       if (!roleObj) return
       try {
-        const permIds = await fetchRolePermissions(roleObj.id)
+        const permIds = await fetchRolePermissions(roleObj.id) // array of permission IDs
         permIds.forEach(id => {
           const perm = allPermissions.value.find(p => p.id === id)
-          if (perm) userPerms.value.add(perm.name)
+          if (perm?.name) userPermsLc.value.add(String(perm.name).toLowerCase())
         })
       } catch (e) {
         console.error(`Failed to load perms for ${roleName}:`, e)
       }
     })
   )
+})
+
+// helper: case-insensitive permission check
+function hasPerm(name) {
+  return userPermsLc.value.has(String(name).toLowerCase())
+}
+
+// priest role check (role names may be strings or objects)
+const isPriest = computed(() => {
+  const rs = auth.user.value?.roles ?? []
+  const names = rs.map(r => (typeof r === 'string' ? r : r?.name)).filter(Boolean)
+  return names.some(n => String(n).toLowerCase() === 'priest')
 })
 
 const { logout } = auth
