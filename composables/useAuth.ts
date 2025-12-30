@@ -58,19 +58,24 @@ export function useAuth() {
 
   /** Login: unchanged, but keep your existing logic */
   async function login(payload: { email: string; password: string }) {
-    try {
-      const url = `${config.apiBase}/auth/login`
-      const { access_token } = await $fetch<{ access_token: string }>(url, {
-        method: 'POST', body: payload
-      })
-      tokenCookie.value = access_token
-      if (process.client) localStorage.setItem('token', access_token)
-      await navigateTo('/admin/bookings')
-      return { data: access_token, error: null, status: 200 }
-    } catch (e: any) {
-      return { data: null, error: e, status: e?.response?.status || 500 }
+    const url = `${config.apiBase}/auth/login`
+  
+    const res = await $fetch<{ access_token: string }>(url, {
+      method: 'POST',
+      body: payload
+    })
+  
+    // If backend didn't return token → treat as failure
+    if (!res?.access_token) {
+      throw new Error('Invalid email or password')
     }
+  
+    tokenCookie.value = res.access_token
+    if (process.client) localStorage.setItem('token', res.access_token)
+  
+    return res.access_token
   }
+  
 
   /** Logout: unchanged */
   function logout() {

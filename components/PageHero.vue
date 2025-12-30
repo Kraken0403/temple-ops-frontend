@@ -1,6 +1,6 @@
 <template>
   <section
-    class="relative bg-cover bg-center bg-no-repeat w-full h-[450px] flex items-center justify-center"
+    class="relative bg-cover bg-center bg-no-repeat w-full h-[400px] flex items-center justify-center"
     :style="bgStyle"
   >
     <!-- img fallback (helps when backgroundImage fails) -->

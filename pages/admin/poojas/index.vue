@@ -6,15 +6,54 @@
       @action="openCreate"
     />
 
+    <!-- FILTER BAR -->
+      <div class="bg-white p-4 rounded-md border border-gray-200 flex flex-col md:flex-row gap-3">
+
+      <!-- SEARCH -->
+      <div class="relative w-full md:flex-1">
+        <span class="material-icons absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+          search
+        </span>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search Services"
+          class="w-full bg-white border border-gray-300 rounded-[8px] py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-[#570000]/30"
+        />
+      </div>
+
+      <!-- VENUE -->
+      <select
+        v-model="venueFilter"
+        class="w-full md:w-[220px] text-gray-600 px-4 py-3 rounded-[8px] border border-gray-300 bg-white"
+      >
+        <option value="">All Venues</option>
+        <option value="temple">Temple</option>
+        <option value="outside">Outside Venue</option>
+      </select>
+
+      <!-- SORT -->
+      <select
+        v-model="sortBy"
+        class="w-full md:w-[220px] text-gray-600 px-4 py-3 rounded-[8px] border border-gray-300 bg-white"
+      >
+        <option value="name">Sort: Name</option>
+        <option value="duration">Sort: Duration</option>
+        <option value="amount">Sort: Price</option>
+      </select>
+
+      </div>
+
+
     <!-- Error -->
     <div v-if="priestError || poojaError" class="text-center text-red-600">
       Error loading data.
     </div>
 
     <!-- Card List -->
-    <div class="cards bg-white h-min-[100vh] flex flex-col gap-[10px] p-[15px]">
+    <div class="cards bg-white  grid grid-cols-1 md:grid-cols-2 gap-[15px] p-[15px]">
       <NuxtLink
-        v-for="p in poojas"
+        v-for="p in filteredPoojas"
         :key="p.id"
         :to="`/admin/poojas/${p.id}`"
         class="flex justify-between items-start p-4 bg-white border-1 border-[#cccccc] rounded-[3px] shadow-sm hover:shadow-md transition no-underline text-inherit"
@@ -57,6 +96,13 @@
             <p class="text-[14px] font-semibold text-gray-600">
               Duration: <span class="font-[400] text-gray-500">{{ p.durationMin }} min</span>
             </p>
+            <p class="text-[14px] font-semibold text-gray-600">
+              Amount:
+              <span class="font-[400] text-gray-500">
+                {{ settings }} {{ p.amount }}
+              </span>
+            </p>
+
           </div>
         </div>
 
@@ -107,6 +153,9 @@ import { useMediaService } from '~/composables/useMediaService'   // ✅ for ful
 
 const config = useRuntimeConfig().public
 const router = useRouter()
+const searchQuery = ref('')
+const venueFilter = ref('')
+const sortBy = ref('name')
 
 const { getSettings } = useSettingsService()
 const { fetchPoojas, deletePooja } = usePoojaService()
@@ -162,6 +211,42 @@ async function onDelete(id) {
     alert(e?.message || 'Failed to delete pooja')
   }
 }
+
+import { computed } from 'vue'
+
+const filteredPoojas = computed(() => {
+  let list = [...poojas.value]
+
+  // 🔍 Search
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    list = list.filter(p =>
+      p.name.toLowerCase().includes(q)
+    )
+  }
+
+  // 🏛 Venue filter
+  if (venueFilter.value === 'temple') {
+    list = list.filter(p => p.isInVenue)
+  }
+  if (venueFilter.value === 'outside') {
+    list = list.filter(p => p.isOutsideVenue)
+  }
+
+  // ↕ Sort
+  if (sortBy.value === 'name') {
+    list.sort((a, b) => a.name.localeCompare(b.name))
+  }
+  if (sortBy.value === 'duration') {
+    list.sort((a, b) => a.durationMin - b.durationMin)
+  }
+  if (sortBy.value === 'amount') {
+    list.sort((a, b) => a.amount - b.amount)
+  }
+
+  return list
+})
+
 
 onMounted(load)
 </script>

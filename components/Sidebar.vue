@@ -27,7 +27,7 @@
         <NavItem
           v-if="hasPerm('Poojas')"
           to="/admin/poojas"
-          label="Poojas"
+          label="Pujas"
           icon="local_fire_department"
         />
 

@@ -33,6 +33,19 @@
           Venues
         </button>
 
+        <!-- Travel & Distance -->
+        <button
+          class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+          :class="activeTab === 'travel'
+            ? 'bg-red-600 text-white shadow'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'"
+          @click="activeTab = 'travel'"
+        >
+          <span class="material-icons text-[18px] mr-2">route</span>
+          Travel & Distance
+        </button>
+
+
         <!-- Users -->
         <button
           class="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
@@ -150,7 +163,16 @@
               </thead>
               <tbody class="divide-y">
                 <tr v-for="v in venues" :key="v.id" class="hover:bg-gray-50">
-                  <td class="px-6 py-3">{{ v.title }}</td>
+                  <td class="px-6 py-3 flex items-center gap-2">
+                      {{ v.title }}
+
+                      <span
+                        v-if="v.id === primaryVenueId"
+                        class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200"
+                      >
+                        Base
+                      </span>
+                    </td>
                   <td class="px-6 py-3">{{ v.address }}</td>
                   <td class="px-6 py-3">{{ v.zipcode }}</td>
                   <td class="px-6 py-3">
@@ -194,6 +216,22 @@
                 <textarea v-model.trim="venueForm.address" rows="3" placeholder="Full address"
                   class="w-full rounded-md border border-[#ccc] px-3 py-2 shadow-sm focus:ring-red-500 focus:border-red-500"></textarea>
               </div>
+              <!-- Map Picker -->
+                <div class="md:col-span-2 space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">
+                    Pick Location on Map
+                  </label>
+
+                  <MapPicker
+                    @picked="onVenueLocationPicked"
+                  />
+
+                  <p v-if="venueForm.latitude && venueForm.longitude"
+                    class="text-xs text-gray-500">
+                    Lat: {{ venueForm.latitude }}, Lng: {{ venueForm.longitude }}
+                  </p>
+                </div>
+
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Zipcode</label>
                 <input v-model.trim="venueForm.zipcode" placeholder="e.g., 380001"
@@ -225,6 +263,136 @@
           </div>
         </div>
       </section>
+
+      <section v-if="activeTab === 'travel'" class="bg-white border border-[#ccc] rounded-xl shadow-sm">
+        <div class="px-6 py-4 border-b border-[#ccc]">
+          <h3 class="text-lg font-semibold text-gray-900">Travel & Distance Pricing</h3>
+          <p class="text-sm text-gray-500">
+            Configure travel charges applied when a puja is performed outside the temple.
+          </p>
+        </div>
+
+        <div class="p-6 grid md:grid-cols-2 gap-6 max-w-3xl">
+
+          <!-- Travel Unit -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Distance Unit</label>
+            <select v-model="travelUnit"
+              class="w-full rounded-md border border-[#ccc] px-3 py-2 focus:ring-red-500 focus:border-red-500">
+              <option value="mile">Miles</option>
+              <option value="km">Kilometers</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">
+              Used for distance calculation display.
+            </p>
+          </div>
+
+          <!-- Rate -->
+        
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Rate per {{ travelUnit }}
+              </label>
+
+              <div class="flex items-center rounded-md border border-[#ccc] overflow-hidden
+                          focus-within:ring-2 focus-within:ring-red-500/40">
+
+                <!-- Currency -->
+                <span
+                  class="px-3 bg-gray-100 text-gray-700 text-sm border-r border-[#ccc]"
+                >
+                  {{ currencySymbol(currency) }}
+                </span>
+
+                <!-- Input -->
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  v-model.number="travelRate"
+                  class="w-full px-3 py-2 focus:outline-none"
+                />
+
+                <!-- Unit -->
+                <span
+                  class="px-3 bg-gray-100 text-gray-600 text-sm border-l border-[#ccc]"
+                >
+                  / {{ travelUnit }}
+                </span>
+              </div>
+
+              <p class="text-xs text-gray-500 mt-1">
+                Amount charged per {{ travelUnit }} after free distance.
+              </p>
+            </div>
+
+
+          <!-- Free Units -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Free Travel {{ travelUnit }}s
+            </label>
+            <input type="number" min="0" step="0.1"
+              v-model.number="freeTravelUnits"
+              class="w-full rounded-md border border-[#ccc] px-3 py-2 focus:ring-red-500 focus:border-red-500" />
+            <p class="text-xs text-gray-500 mt-1">
+              Distance included at no extra cost.
+            </p>
+          </div>
+
+          <!-- Max Units -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Max Serviceable {{ travelUnit }}s
+            </label>
+            <input type="number" min="1" step="1"
+              v-model.number="maxServiceUnits"
+              class="w-full rounded-md border border-[#ccc] px-3 py-2 focus:ring-red-500 focus:border-red-500" />
+            <p class="text-xs text-gray-500 mt-1">
+              Bookings beyond this distance will be blocked.
+            </p>
+          </div>
+
+          <!-- Primary Venue -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Primary / Base Venue
+            </label>
+
+            <select
+              v-model.number="primaryVenueId"
+              class="w-full rounded-md border border-[#ccc] px-3 py-2
+                    focus:ring-red-500 focus:border-red-500"
+            >
+              <option :value="null">— Select base venue —</option>
+
+              <option
+                v-for="v in venues"
+                :key="v.id"
+                :value="v.id"
+                :disabled="!v.isActive"
+              >
+                {{ v.title }} — {{ v.zipcode }}
+              </option>
+            </select>
+
+            <p class="text-xs text-gray-500 mt-1">
+              Used as the base location for distance & travel cost calculation.
+            </p>
+          </div>
+
+
+          <!-- Save -->
+          <div class="md:col-span-2 flex items-center gap-3">
+            <button @click="saveTravelSettings"
+              class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">
+              Save Travel Settings
+            </button>
+            <!-- <span v-if="travelSaved" class="text-green-600 text-sm">Saved</span> -->
+          </div>
+        </div>
+      </section>
+
 
       <!-- Users -->
       <section v-if="activeTab === 'users'" class="space-y-6">
@@ -390,7 +558,7 @@ import { useUserService }       from '~/composables/useUserService'
 import { usePermissionService } from '~/composables/usePermissionService'
 import { useVenueService }      from '~/composables/useVenueService'
 import { useNotification }      from '~/composables/useNotification'
-
+import MapPicker from '@/components/maps/MapPicker.vue'
 const { showNotification } = useNotification()
 
 /** Tabs **/
@@ -400,6 +568,14 @@ const activeTab = ref('general')
 const { getSettings, updateSettings } = useSettingsService()
 const currency = ref('USD')
 const timezone = ref('Asia/Kolkata')
+const primaryVenueId = ref(null)
+
+const travelRate = ref(0)
+const travelUnit = ref('mile')
+const freeTravelUnits = ref(0)
+const maxServiceUnits = ref(0)
+const travelSaved = ref(false)
+
 
 const currencyOptions = [
   { code: 'USD', name: 'US Dollar' },
@@ -413,6 +589,19 @@ const currencyOptions = [
   { code: 'CNY', name: 'Chinese Yuan' },
   { code: 'AED', name: 'UAE Dirham' }
 ]
+
+function currencySymbol(code) {
+  const map = {
+    INR: '₹',
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    AED: 'د.إ',
+    JPY: '¥',
+  }
+  return map[code] || code
+}
+
 
 const timezoneOptions = [
   // 🌍 Common Global Timezonesd
@@ -458,12 +647,23 @@ const timezoneOptions = [
 async function loadSettings() {
   try {
     const s = await getSettings()
+
     currency.value = s.currency || 'USD'
     timezone.value = s.timezone || 'Asia/Kolkata'
+
+    travelRate.value = s.travelRate ?? 10
+    travelUnit.value = s.travelUnit ?? 'mile'
+    freeTravelUnits.value = s.freeTravelUnits ?? 5
+    maxServiceUnits.value = s.maxServiceUnits ?? 50
+
+    // ✅ ADD THIS
+    primaryVenueId.value = s.primaryVenueId ?? null
+
   } catch {
     showNotification('Failed to load settings', 'error')
   }
 }
+
 
 async function saveSettings() {
   try {
@@ -484,8 +684,13 @@ const venueForm = reactive({
   address: '',
   zipcode: '',
   mapLink: '',
-  isActive: true
+  isActive: true,
+
+  // ✅ ADD THESE
+  latitude: null,
+  longitude: null,
 })
+
 const savingVenue  = ref(false)
 
 function resetVenueForm() {
@@ -495,9 +700,14 @@ function resetVenueForm() {
   venueForm.zipcode = ''
   venueForm.mapLink = ''
   venueForm.isActive = true
+
+  venueForm.latitude = null
+  venueForm.longitude = null
 }
+
 function openVenueForm(v = null) {
   venueForm.open = true
+
   if (v) {
     venueForm.id = v.id
     venueForm.title = v.title
@@ -505,10 +715,14 @@ function openVenueForm(v = null) {
     venueForm.zipcode = v.zipcode
     venueForm.mapLink = v.mapLink || ''
     venueForm.isActive = !!v.isActive
+
+    venueForm.latitude = v.latitude ?? null
+    venueForm.longitude = v.longitude ?? null
   } else {
     resetVenueForm()
   }
 }
+
 function cancelVenueForm() {
   venueForm.open = false
   resetVenueForm()
@@ -521,6 +735,42 @@ async function loadVenues() {
     showNotification('Failed to load venues', 'error')
   }
 }
+
+function onVenueLocationPicked(data) {
+  venueForm.latitude = data.lat
+  venueForm.longitude = data.lng
+
+  if (data.addressLine) {
+    venueForm.address = data.addressLine
+  }
+
+  if (data.zip) {
+    venueForm.zipcode = data.zip
+  }
+}
+
+
+async function saveTravelSettings() {
+  try {
+    await updateSettings({
+      travelRate: travelRate.value,
+      travelUnit: travelUnit.value,
+      freeTravelUnits: freeTravelUnits.value,
+      maxServiceUnits: maxServiceUnits.value,
+
+      // ✅ ADD THIS
+      primaryVenueId: primaryVenueId.value,
+    })
+
+    travelSaved.value = true
+    showNotification('Travel settings updated', 'success')
+    setTimeout(() => (travelSaved.value = false), 2000)
+
+  } catch (e) {
+    showNotification(e?.message || 'Failed to save travel settings', 'error')
+  }
+}
+
 
 async function saveVenue() {
   if (!venueForm.title?.trim()) { showNotification('Title is required', 'error'); return }
@@ -541,12 +791,17 @@ async function saveVenue() {
     }
 
     const payload = {
-      title: venueForm.title.trim(),
-      address: venueForm.address.trim(),
-      zipcode: venueForm.zipcode.trim(),
-      mapLink: link || undefined,
-      isActive: !!venueForm.isActive
-    }
+        title: venueForm.title.trim(),
+        address: venueForm.address.trim(),
+        zipcode: venueForm.zipcode.trim(),
+        mapLink: link || undefined,
+        isActive: !!venueForm.isActive,
+
+        // ✅ ADD
+        latitude: venueForm.latitude,
+        longitude: venueForm.longitude,
+      }
+
 
     if (venueForm.id) await updateVenue(venueForm.id, payload)
     else await createVenue(payload)

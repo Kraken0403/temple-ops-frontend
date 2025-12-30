@@ -17,6 +17,18 @@ onMounted(async () => {
   await loadTimezone()
 })
 
+const config = useRuntimeConfig()
+
+
+useHead({
+  script: [
+    {
+      src: `https://maps.googleapis.com/maps/api/js?key=${config.public.googleMapsKey}&libraries=places`,
+      async: true,
+      defer: true
+    }
+  ]
+})
 </script>
 
 <style lang="scss" src="./assets/css/global.scss">

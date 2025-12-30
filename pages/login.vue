@@ -1,6 +1,6 @@
 <template>
   <div class="mx-auto max-w-sm mt-20 mb-20 p-6 border-[#ccc] border-[1px] rounded shadow">
-    <h1 class="text-2xl mb-4 text-center">Admin Login</h1>
+    <h1 class="text-2xl mb-4 text-center">Login</h1>
     <form @submit.prevent="onSubmit">
       <input
         v-model="email"
@@ -44,12 +44,23 @@ const { showNotification } = useNotification()
 
 async function onSubmit() {
   try {
-    await login({ email: email.value, password: password.value })
+    await login({
+      email: email.value,
+      password: password.value
+    })
+
     showNotification('Login successful!', 'success')
     router.push('/admin/bookings')
   } catch (err) {
     console.error('Login failed:', err)
-    showNotification(err.message || 'Login failed. Please try again.', 'error')
+
+    showNotification(
+      err?.data?.message ||
+      err?.message ||
+      'Invalid email or password',
+      'error'
+    )
   }
 }
+
 </script>

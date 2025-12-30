@@ -71,6 +71,10 @@ export const usePoojaService = () => {
       categoryIds: (form.categoryIds || []).map(Number).filter(Boolean),
 
       amount: Number(form.amount),
+      outsideAmount:
+      isOutsideVenue && form.outsideAmount != null
+        ? Number(form.outsideAmount)
+        : null,
       durationMin: Number(form.durationMin),
       prepTimeMin: Number(form.prepTimeMin),
       bufferMin: Number(form.bufferMin),
@@ -135,6 +139,12 @@ export const usePoojaService = () => {
       categoryIds,
 
       amount: form.amount != null ? Number(form.amount) : undefined,
+      outsideAmount:
+      typeof form.isOutsideVenue === 'boolean'
+        ? (form.isOutsideVenue
+            ? (form.outsideAmount != null ? Number(form.outsideAmount) : null)
+            : null)
+        : undefined,
       durationMin: form.durationMin != null ? Number(form.durationMin) : undefined,
       prepTimeMin: form.prepTimeMin != null ? Number(form.prepTimeMin) : undefined,
       bufferMin: form.bufferMin != null ? Number(form.bufferMin) : undefined,

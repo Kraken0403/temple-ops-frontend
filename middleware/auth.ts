@@ -1,22 +1,34 @@
 // middleware/auth.ts
 import { defineNuxtRouteMiddleware, navigateTo, useCookie } from '#app'
-import type { RouteLocationNormalized } from 'vue-router'
 
-export default defineNuxtRouteMiddleware((to: RouteLocationNormalized) => {
-  // 1) Try cookie first
+function isTokenExpired(token: string): boolean {
+  try {
+    const [, payload] = token.split('.')
+    const decoded = JSON.parse(atob(payload))
+    if (!decoded.exp) return true
+    return Date.now() >= decoded.exp * 1000
+  } catch {
+    return true
+  }
+}
+
+export default defineNuxtRouteMiddleware(() => {
   const tokenCookie = useCookie<string | null>('token')
   let token = tokenCookie.value
 
-  // 2) Fallback to localStorage on the client
   if (process.client && !token) {
     token = localStorage.getItem('token')
   }
 
-  // Debug logging
-  console.log('[auth] token:', token)
-
-  // 3) If no token, redirect to the login page
+  // ❌ No token → kick out
   if (!token) {
+    return navigateTo('/login')
+  }
+
+  // ❌ Expired token → HARD logout
+  if (isTokenExpired(token)) {
+    tokenCookie.value = null
+    if (process.client) localStorage.removeItem('token')
     return navigateTo('/login')
   }
 })

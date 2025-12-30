@@ -1,24 +1,33 @@
 <template>
   <section class="py-10 max-w-xl mx-auto">
-    <Stepper v-if="labels.length" :steps="labels" :current-step="currentStep" />
+    <!-- Stepper -->
+    <Stepper
+      v-if="steps.length"
+      :steps="labels"
+      :current-step="currentStep"
+    />
 
-    <!-- Guard so we never render an undefined component -->
+    <!-- Active Step -->
     <component
-      v-if="pooja && steps.length && steps[currentStep]"
+      v-if="pooja && steps[currentStep]"
       :is="steps[currentStep]"
       :pooja="pooja"
       :selectedSlot="selectedSlot"
-      :user="user.value"  
-      :venue="venue.value"        
-      @update-user="(u) => user.value = u"
-      @update-venue="(v) => venue.value = v"
-      @update-slot="(slot) => selectedSlot = slot"
+      :user="user"
+      :venue="venue"
+      :quote="quote"
+      :quoting="quoting"
+      :quoteError="quoteError"
+      @update-user="user = $event"
+      @update-venue="onUpdateVenue"
+      @update-slot="selectedSlot = $event"
       @next="handleNext"
       @goBack="handleBack"
     />
 
-    <!-- Optional tiny fallback while loading -->
-    <div v-else class="text-center text-gray-500">Loading…</div>
+    <div v-else class="text-center text-gray-500 py-10">
+      Loading…
+    </div>
   </section>
 </template>
 
@@ -26,36 +35,57 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePoojaService } from '@/composables/usePoojaService'
+import { useBookingService } from '@/composables/useBookingService'
 
-// Step Components
+/* ───────── Components ───────── */
 import Stepper from '@/components/booking/Stepper'
 import StepSlotSelection from '@/components/checkout/StepSlotSelection.vue'
 import StepVenueDetails from '@/components/checkout/StepVenueDetails.vue'
 import StepUserDetails from '@/components/checkout/StepUserDetails.vue'
 import StepConfirmPayment from '@/components/checkout/StepConfirmPayment.vue'
 
+/* ───────── Services ───────── */
 const route = useRoute()
 const { getPoojaById } = usePoojaService()
+const { quoteBooking } = useBookingService()
 
+/* ───────── State ───────── */
 const pooja = ref(null)
 const selectedSlot = ref(null)
-const user = ref({ name: '', phone: '', email: '' })          // ✅ wrapped in ref
-const venue = ref({ address: '', state: '', zip: '' })        // ✅ wrapped in ref
+
+const user = ref({
+  name: '',
+  phone: '',
+  email: '',
+})
+
+const venue = ref({
+  address: '',
+  state: '',
+  zip: '',
+  lat: null,
+  lng: null,
+})
+
+const quote = ref(null)
+const quoting = ref(false)
+const quoteError = ref(null)
+
 const currentStep = ref(0)
 
+/* ───────── Steps ───────── */
 const allSteps = [
   StepSlotSelection,
   StepVenueDetails,
   StepUserDetails,
-  StepConfirmPayment
+  StepConfirmPayment,
 ]
 
-// Should we include the venue step?
+
+
 const needsVenueStep = computed(() => {
-  const p = pooja.value
-  if (!p) return false
-  const hasTempleVenue = !!(p.venueRel || p.venueId)
-  return p.isOutsideVenue || (p.isInVenue && hasTempleVenue)
+  if (!pooja.value) return false
+  return pooja.value.isOutsideVenue
 })
 
 const steps = computed(() => {
@@ -72,18 +102,84 @@ const labels = computed(() => {
     : ['Select Slot', 'Your Details', 'Review']
 })
 
+/* ───────── Navigation ───────── */
 function handleNext() {
-  if (currentStep.value < steps.value.length - 1) currentStep.value++
-}
-function handleBack() {
-  if (currentStep.value > 0) currentStep.value--
+  if (currentStep.value < steps.value.length - 1) {
+    currentStep.value++
+  }
 }
 
-// Keep index valid whenever steps change
+function onUpdateVenue(v) {
+  venue.value = {
+    ...venue.value,
+    ...v,
+  }
+}
+
+function handleBack() {
+  if (currentStep.value > 0) {
+    currentStep.value--
+  }
+}
+
+/* ───────── Quote Logic (FIXED & SAFE) ───────── */
+watch(
+  () => ({
+    slot: selectedSlot.value,
+    lat: venue.value?.lat,
+    lng: venue.value?.lng,
+  }),
+  async ({ slot, lat, lng }) => {
+    console.group('🧮 QUOTE WATCHER')
+
+    if (!slot || !pooja.value) {
+      quote.value = null
+      quoteError.value = null
+      console.info('⏸ waiting for slot / pooja')
+      console.groupEnd()
+      return
+    }
+
+    if (pooja.value.isOutsideVenue && (!lat || !lng)) {
+      quote.value = null
+      quoteError.value = null
+      console.info('⏳ waiting for venue location')
+      console.groupEnd()
+      return
+    }
+
+    quoting.value = true
+    quoteError.value = null
+
+    try {
+      const res = await quoteBooking({
+        poojaId: pooja.value.id,
+        venueLat: lat ?? undefined,
+        venueLng: lng ?? undefined,
+      })
+
+      console.log('✅ QUOTE RESULT:', res)
+      quote.value = res
+    } catch (err) {
+      console.error('❌ QUOTE ERROR:', err)
+      quote.value = null
+      quoteError.value = err?.message || 'Failed to calculate price'
+    } finally {
+      quoting.value = false
+      console.groupEnd()
+    }
+  },
+  { immediate: true, flush: 'post' }
+)
+
+/* ───────── Step Guard ───────── */
 watch(steps, (arr) => {
-  if (currentStep.value > arr.length - 1) currentStep.value = 0
+  if (currentStep.value > arr.length - 1) {
+    currentStep.value = arr.length - 1
+  }
 })
 
+/* ───────── Load Pooja ───────── */
 onMounted(async () => {
   const id = route.query.poojaId
   if (!id) return

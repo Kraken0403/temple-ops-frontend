@@ -1,7 +1,7 @@
 <template>
     <div class="">
       <transition name="fade">
-        <div class="fixed inset-0 z-50 flex items-start justify-center bg-black/50" @click="close">
+        <div class="fixed inset-0 z-50 flex items-start justify-center bg-black/50">
           <div
             class="bg-white rounded-lg shadow-lg w-full max-w-lg mx-4 h-screen flex flex-col"
             @click.stop
@@ -239,6 +239,25 @@
                 <!-- Outside-Venue -->
                 <div v-if="form.isOutsideVenue" class="space-y-4">
                   <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                      Outside Venue Amount <span class="text-red-600">*</span>
+                    </label>
+                    <input
+                      v-model.number="form.outsideAmount"
+                      type="number"
+                      min="0"
+                      class="w-full p-2 border border-gray-300 rounded focus:ring-0 focus:border-green-600"
+                      placeholder="Enter amount for outside venue service"
+                    />
+                    <p
+                      v-if="touched && form.isOutsideVenue && (form.outsideAmount === null || form.outsideAmount < 0)"
+                      class="text-xs text-red-600 mt-1"
+                    >
+                      Outside venue amount is required.
+                    </p>
+                </div>
+
+                  <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Venue Address</label>
                     <input
                       v-model="form.venueAddress"
@@ -440,6 +459,7 @@
     priestIds: [],
     categoryIds: [],
     amount: 0,
+    outsideAmount: null,
     date: '',
     time: '',
     durationMin: 60,
@@ -466,7 +486,10 @@
   const canSave = computed(() => {
   const priestIds = (form.priestIds || []).map(Number).filter(Boolean)
   const categoryIds = (form.categoryIds || []).map(Number).filter(Boolean)
-  const venueOk = !form.isInVenue || !!form.venueId // ✅ require venue if in-venue is selected
+
+  const venueOk = !form.isInVenue || !!form.venueId
+  const outsideAmountOk =
+    !form.isOutsideVenue || (typeof form.outsideAmount === 'number' && form.outsideAmount >= 0)
 
   return Boolean(
     form.name &&
@@ -474,9 +497,11 @@
     priestIds.length > 0 &&
     categoryIds.length > 0 &&
     hasVenueMode.value &&
-    venueOk
+    venueOk &&
+    outsideAmountOk // ✅ NEW
   )
 })
+
   
   /* Image picker */
   const previewUrl = ref(null)
@@ -527,12 +552,13 @@
     form.priestIds = Array.isArray(p.priests) ? p.priests.map(pr => pr.id) : (p.priestIds || [])
     form.categoryIds = Array.isArray(p.categories) ? p.categories.map(c => c.id) : (p.categoryIds || [])
     form.amount = p.amount ?? 0
+    form.outsideAmount = p.outsideAmount ?? null
     form.date = p.date ? p.date.substring(0, 10) : ''
     form.time = p.time ? new Date(p.time).toISOString().substring(11, 16) : ''
     form.durationMin = p.durationMin ?? 60
     form.prepTimeMin = p.prepTimeMin ?? 0
     form.bufferMin = p.bufferMin ?? 0
-  
+    
     form.isInVenue = !!p.isInVenue
     form.isOutsideVenue = !!p.isOutsideVenue
   
@@ -572,13 +598,13 @@
     }
   }
   function onToggleOutsideVenue() {
-    if (!form.isOutsideVenue) {
-      form.venueAddress = ''
-      form.mapLink = ''
-      form.allowedZones = ''
-    }
+  if (!form.isOutsideVenue) {
+    form.venueAddress = ''
+    form.mapLink = ''
+    form.allowedZones = ''
+    form.outsideAmount = null // ✅ ADD THIS
   }
-  
+}
   onMounted(async () => {
     try { priests.value = await fetchPriests() } catch { priests.value = [] }
     try { venues.value = await fetchVenues() } catch { venues.value = [] }
@@ -588,41 +614,116 @@
   watch(() => props.pooja, (p) => hydrateFromPooja(p))
   
   function close() { emit('close') }
-  
+
   async function submitForm() {
-    touched.value = true
-    if (!canSave.value) return
-  
-    try {
-      form.priestIds = (form.priestIds || []).map(Number)
-      form.categoryIds = (form.categoryIds || []).map(Number)
-  
-      if (props.pooja && props.pooja.id) {
-        await updatePooja(props.pooja.id, form, null)
-        emit('updated')
-      } else {
-        await createPooja(form, null)
-        emit('created')
-        // reset
-        Object.assign(form, {
-          name: '', priestIds: [], categoryIds: [], amount: 0, date: '', time: '',
-          durationMin: 60, prepTimeMin: 0, bufferMin: 0,
-          isInVenue: true, isOutsideVenue: false,
-          venueId: null, venueAddress: '', mapLink: '', allowedZones: '',
-          includeFood: false, includeHall: false,
-          materials: '', notes: '', description: '',
-          featuredMediaId: null, clearFeaturedMedia: false,
-        })
-        previewUrl.value = null
-        imgKey.value++
-        touched.value = false
-      }
-      close()
-    } catch (err) {
-      console.error('❌ Error saving pooja:', err)
+  touched.value = true
+  if (!canSave.value) return
+
+  try {
+    // -------------------------------
+    // BASE PAYLOAD
+    // -------------------------------
+    const payload = {
+      ...form,
+
+      // normalize IDs
+      priestIds: (form.priestIds || []).map(Number).filter(Boolean),
+      categoryIds: (form.categoryIds || []).map(Number).filter(Boolean),
     }
+
+    // -------------------------------
+    // ⏱️ DATE / TIME NORMALIZATION
+    // -------------------------------
+    // date must be ISO date string
+    if (!payload.date) {
+      delete payload.date
+    }
+
+    // time MUST be ISO string for @IsDateString
+    if (payload.time) {
+      // UI gives "HH:mm"
+      payload.time = `1970-01-01T${payload.time}:00.000Z`
+    } else {
+      delete payload.time
+    }
+
+    // -------------------------------
+    // 📍 allowedZones (string → string[])
+    // -------------------------------
+    payload.allowedZones = Array.isArray(payload.allowedZones)
+      ? payload.allowedZones
+      : String(payload.allowedZones || '')
+          .split(',')
+          .map(z => z.trim())
+          .filter(Boolean)
+
+    if (!payload.allowedZones.length) {
+      delete payload.allowedZones
+    }
+
+    // -------------------------------
+    // 🏛️ VENUE RULES
+    // -------------------------------
+    if (!payload.isInVenue) {
+      delete payload.venueId
+      delete payload.date
+      delete payload.time
+    } else if (!payload.venueId) {
+      delete payload.venueId
+    }
+
+    // -------------------------------
+    // 🚗 OUTSIDE VENUE RULES
+    // -------------------------------
+    if (payload.isOutsideVenue) {
+        // CREATE: must send
+        // UPDATE: send if number
+        if (typeof payload.outsideAmount !== 'number') {
+          // CREATE should never reach here due to canSave
+          delete payload.outsideAmount
+        }
+      } else {
+        // Outside venue OFF → always remove
+        delete payload.outsideAmount
+      }
+    // -------------------------------
+    // 🧹 OPTIONAL STRINGS
+    // -------------------------------
+    if (!payload.venueAddress) delete payload.venueAddress
+    if (!payload.mapLink) delete payload.mapLink
+    if (!payload.materials) delete payload.materials
+    if (!payload.notes) delete payload.notes
+    if (!payload.description) delete payload.description
+
+    // -------------------------------
+    // 🖼️ FEATURED MEDIA
+    // -------------------------------
+    // Only send clearFeaturedMedia if TRUE
+    if (!payload.clearFeaturedMedia) {
+      delete payload.clearFeaturedMedia
+    }
+
+    // -------------------------------
+    // 🚀 FINAL PAYLOAD
+    // -------------------------------
+    console.log('🚀 FINAL CLEAN PAYLOAD', payload)
+
+    if (props.pooja && props.pooja.id) {
+      await updatePooja(props.pooja.id, payload, null)
+      emit('updated')
+    } else {
+      await createPooja(payload, null)
+      emit('created')
+    }
+
+    close()
+  } catch (err) {
+    console.error('❌ Error saving pooja:', err)
   }
-  
+}
+
+
+
   /* ───────── Category modal ───────── */
   const showCategoryModal = ref(false)
   const catForm = reactive({ name: '', description: '' })

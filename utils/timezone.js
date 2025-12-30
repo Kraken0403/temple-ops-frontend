@@ -40,9 +40,27 @@ export function formatDateTime(iso, fmt = 'yyyy-LL-dd HH:mm') {
   return formatWithTZ(iso, fmt)
 }
 
-export function formatTime(iso, fmt = 'HH:mm') {
+export function formatTime(iso, fmt = 'hh:mm a') {
   return formatWithTZ(iso, fmt)
 }
+
+// For <input type="datetime-local">
+export function isoToLocalInput(iso) {
+  if (!iso) return ''
+  return DateTime
+    .fromISO(iso, { zone: 'utc' })
+    .setZone(cachedTZ)
+    .toFormat("yyyy-LL-dd'T'HH:mm")
+}
+
+export function localInputToUTC(local) {
+  if (!local) return null
+  return DateTime
+    .fromISO(local, { zone: cachedTZ })
+    .toUTC()
+    .toISO()
+}
+
 
 export function normalizeYMDToUTC(ymd) {
   return DateTime.fromISO(ymd, { zone: cachedTZ })

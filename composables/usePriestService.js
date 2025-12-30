@@ -15,7 +15,12 @@ export const usePriestService = () => {
   const handle = async (res, msg) => {
     if (!res.ok) {
       const j = await safeJson(res)
-      throw new Error(j?.message?.[0] || j?.message || msg || 'Request failed')
+      const errorMsg = Array.isArray(j?.message)
+        ? j.message.join(', ')
+        : j?.message || msg
+
+      throw new Error(errorMsg)
+
     }
     // always parse once
     return safeJson(res)

@@ -1,37 +1,48 @@
+// composables/useSettingsService.js
 import { useRuntimeConfig, useCookie } from '#app'
 
 export const useSettingsService = () => {
-  const config = useRuntimeConfig().public
-  const token = useCookie('token').value
+  const { apiBase } = useRuntimeConfig().public
+  const base = `${apiBase}/settings`
 
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json'
+  const headers = () => {
+    const t = useCookie('token').value
+    const h = { 'Content-Type': 'application/json' }
+    if (t) h.Authorization = `Bearer ${t}`
+    return h
   }
 
+  const safeJson = async (res) => {
+    try { return await res.json() } catch { return null }
+  }
+
+  const parseOrThrow = async (res, fallbackMsg) => {
+    const data = await safeJson(res)
+    if (!res.ok) {
+      const msg =
+        Array.isArray(data?.message)
+          ? data.message[0]
+          : data?.message || data?.error || fallbackMsg || `HTTP ${res.status}`
+      throw new Error(msg)
+    }
+    return data
+  }
+
+  // ✅ Guest-safe (no token required)
   const getSettings = async () => {
-    const res = await fetch(`${config.apiBase}/settings`, { headers })
-    if (!res.ok) throw new Error('Failed to fetch settings')
-    return await res.json()
+    const res = await fetch(base, { headers: headers() })
+    return parseOrThrow(res, 'Failed to fetch settings')
   }
 
+  // ✅ Admin-only typically (token required)
   const updateSettings = async (payload) => {
-    const res = await fetch(`${config.apiBase}/settings`, {
+    const res = await fetch(base, {
       method: 'POST',
-      headers,
+      headers: headers(),
       body: JSON.stringify(payload),
     })
-
-    if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.message || 'Failed to update settings')
-    }
-
-    return await res.json()
+    return parseOrThrow(res, 'Failed to update settings')
   }
 
-  return {
-    getSettings,
-    updateSettings
-  }
+  return { getSettings, updateSettings }
 }

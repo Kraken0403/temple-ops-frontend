@@ -117,7 +117,7 @@
           to="/services"
           class="hidden lg:inline-block bg-green-800 text-white px-6 py-2 rounded-full shadow-md hover:bg-green-900 transition"
         >
-          Book Pooja
+          Book Puja
         </NuxtLink>
 
         <!-- Hamburger Menu Button -->

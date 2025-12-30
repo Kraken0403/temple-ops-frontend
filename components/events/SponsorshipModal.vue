@@ -3,7 +3,7 @@
       <div
         v-if="visible"
         class="fixed inset-0 z-50 flex items-start justify-center bg-black/50"
-        @click="$emit('close')"
+       
       >
         <div
           class="bg-white rounded-lg shadow-lg w-full max-w-lg mx-4 h-[520px] mt-10 flex flex-col"

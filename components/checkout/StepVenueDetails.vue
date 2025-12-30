@@ -1,92 +1,126 @@
 <template>
   <div>
-    <h2 class="text-[22px] font-bold mb-[30px] text-center">Venue Detail</h2>
+    <h2 class="text-[22px] font-bold mb-[30px] text-center">
+      Venue Detail
+    </h2>
 
     <!-- Choice -->
     <div v-if="showChoice" class="mb-5 border rounded p-3 bg-gray-50">
-      <p class="text-sm font-medium text-gray-700 mb-2">Where would you like the service?</p>
+      <p class="text-sm font-medium text-gray-700 mb-2">
+        Where would you like the service?
+      </p>
+
       <label class="flex items-center gap-2 mb-2">
         <input type="radio" value="temple" v-model="choice" />
         <span>Use temple venue</span>
       </label>
+
       <label class="flex items-center gap-2">
         <input type="radio" value="custom" v-model="choice" />
-        <span>Enter custom address</span>
+        <span>At your location</span>
       </label>
     </div>
 
-    <!-- Temple venue card -->
+    <!-- Temple venue -->
     <div v-if="useTemple" class="rounded border p-4 mb-6">
       <h3 class="font-semibold mb-1">Temple Venue</h3>
+
       <p class="text-gray-800">
-        <span class="font-medium">{{ selectedVenue?.title || 'Temple Venue' }}</span>
+        <span class="font-medium">
+          {{ selectedVenue?.title || 'Temple Venue' }}
+        </span>
         <template v-if="selectedVenue?.zipcode">
           — <span class="text-gray-600">{{ selectedVenue.zipcode }}</span>
         </template>
       </p>
+
       <p v-if="selectedVenue?.address" class="text-gray-700 mt-1">
         {{ selectedVenue.address }}
       </p>
+
       <a
         v-if="selectedVenue?.mapLink"
         :href="selectedVenue.mapLink"
         target="_blank"
         class="inline-block mt-2 text-blue-600 hover:underline"
-      >View map</a>
+      >
+        View map
+      </a>
     </div>
 
-    <!-- Custom inputs -->
+    <!-- Outside venue -->
     <div v-if="showCustomForm" class="space-y-4">
+      <!-- Address autocomplete -->
+      <AddressAutocomplete @selected="onAddressSelected" />
+
+      <p v-if="localVenue.addressLine" class="text-sm text-green-700">
+        📍 {{ localVenue.addressLine }}
+      </p>
+
+      <!-- Map -->
+      <MapPicker
+        v-if="localVenue.lat && localVenue.lng"
+        :lat="localVenue.lat"
+        :lng="localVenue.lng"
+        draggable
+        @picked="onLocationPicked"
+      />
+
+      <!-- Address extra -->
       <div>
-        <label for="address" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+        <label class="block text-sm font-medium mb-1">
+          House / Flat / Landmark
+        </label>
         <input
-          id="address"
-          v-model="localVenue.address"
-          placeholder="Enter venue address"
-          required
-          class="w-full rounded-[3px] border-[#ccc] border-[1px] p-[10px]"
+          v-model="localVenue.addressExtra"
+          class="w-full border p-[10px] rounded"
+          placeholder="Flat, floor, landmark (optional)"
         />
       </div>
 
-      <div>
-        <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State</label>
-        <input
-          id="state"
-          v-model="localVenue.state"
-          placeholder="Enter state"
-          required
-          class="w-full rounded-[3px] border-[#ccc] border-[1px] p-[10px]"
-        />
-      </div>
+      <!-- City / State / Zip -->
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-sm font-medium mb-1">City</label>
+          <input
+            v-model="localVenue.city"
+            class="w-full border p-[10px] rounded"
+            placeholder="City"
+          />
+        </div>
 
-      <div>
-        <label for="zip" class="block text-sm font-medium text-gray-700 mb-1">Zip Code</label>
-        <input
-          id="zip"
-          v-model="localVenue.zip"
-          placeholder="Enter zip code"
-          required
-          class="w-full rounded-[3px] border-[#ccc] border-[1px] p-[10px]"
-        />
-      </div>
-    </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">State</label>
+          <input
+            v-model="localVenue.state"
+            class="w-full border p-[10px] rounded"
+            placeholder="State"
+          />
+        </div>
 
-    <!-- Safety -->
-    <div v-if="!useTemple && !showCustomForm" class="text-sm text-gray-500 mb-4">
-      No venue options available for this service.
+        <div>
+          <label class="block text-sm font-medium mb-1">Zip / Pincode</label>
+          <input
+            v-model="localVenue.zip"
+            class="w-full border p-[10px] rounded"
+            placeholder="Zip / Pincode"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- Actions -->
     <div class="flex justify-between mt-6">
       <button
         @click="$emit('goBack')"
-        class="px-4 py-2 bg-gray-300 cursor-pointer rounded hover:bg-gray-400"
+        class="px-4 py-2 bg-gray-300 rounded"
       >
         Back
       </button>
+
       <button
         @click="nextStep"
-        class="px-4 py-2 bg-blue-600 cursor-pointer text-white rounded hover:bg-blue-700"
+        class="px-4 py-2 bg-blue-600 text-white rounded"
       >
         Next
       </button>
@@ -95,98 +129,152 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watchEffect, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useVenueService } from '@/composables/useVenueService'
 import { useNotification } from '@/composables/useNotification'
 
+import AddressAutocomplete from '@/components/maps/AddressAutocomplete.vue'
+import MapPicker from '@/components/maps/MapPicker.vue'
+
 const { showNotification } = useNotification()
+const { fetchVenues } = useVenueService()
 
 const props = defineProps({
   pooja: { type: Object, required: true },
-  venue: { type: Object, required: true }
+  venue: { type: Object, required: true },
 })
+
 const emit = defineEmits(['next', 'goBack', 'update-venue'])
 
-const { fetchVenues } = useVenueService()
 const resolvedVenue = ref(null)
 
+/* ───────── Flags ───────── */
 const hasTempleFlag = computed(() => !!props.pooja?.isInVenue)
 const hasOutsideFlag = computed(() => !!props.pooja?.isOutsideVenue)
-const hasTempleVenueAssigned = computed(() => !!(props.pooja?.venueRel || props.pooja?.venueId))
-const selectedVenue = computed(() => resolvedVenue.value || props.pooja?.venueRel || null)
+const hasTempleVenueAssigned = computed(
+  () => !!(props.pooja?.venueRel || props.pooja?.venueId)
+)
 
-const showChoice = computed(() => hasTempleFlag.value && hasOutsideFlag.value && hasTempleVenueAssigned.value)
+const selectedVenue = computed(
+  () => resolvedVenue.value || props.pooja?.venueRel || null
+)
+
+const showChoice = computed(
+  () => hasTempleFlag.value && hasOutsideFlag.value && hasTempleVenueAssigned.value
+)
+
 const choice = ref('custom')
 
 watch(showChoice, (v) => {
-  if (v && (choice.value !== 'temple' && choice.value !== 'custom')) {
-    choice.value = 'temple'
-  } else if (!v) {
-    choice.value = hasTempleFlag.value && hasTempleVenueAssigned.value ? 'temple' : 'custom'
+  if (!v) {
+    choice.value =
+      hasTempleFlag.value && hasTempleVenueAssigned.value
+        ? 'temple'
+        : 'custom'
   }
 }, { immediate: true })
 
 const useTemple = computed(() => {
   if (!hasTempleFlag.value || !hasTempleVenueAssigned.value) return false
-  if (showChoice.value) return choice.value === 'temple'
-  return true
+  return showChoice.value ? choice.value === 'temple' : true
 })
 
 const showCustomForm = computed(() => {
   if (!hasOutsideFlag.value) return false
-  if (hasTempleFlag.value) {
-    if (!hasTempleVenueAssigned.value) return true
+  if (hasTempleFlag.value && hasTempleVenueAssigned.value) {
     return choice.value === 'custom'
   }
   return true
 })
 
-const localVenue = ref({ address: '', state: '', zip: '' })
-watchEffect(() => {
-  localVenue.value = {
-    address: props.venue?.address || '',
-    state: props.venue?.state || '',
-    zip: props.venue?.zip || ''
-  }
+/* ───────── Venue state (UI + pricing source) ───────── */
+const localVenue = ref({
+  addressLine: '',
+  addressExtra: '',
+  city: '',
+  state: '',
+  zip: '',
+  lat: null,
+  lng: null,
 })
 
+/**
+ * Restore state when navigating back
+ */
+watch(
+  () => props.venue,
+  (v) => {
+    if (!v) return
+    Object.assign(localVenue.value, {
+      addressLine: v.address || localVenue.value.addressLine,
+      city: v.city || localVenue.value.city,
+      state: v.state || localVenue.value.state,
+      zip: v.zip || localVenue.value.zip,
+      lat: typeof v.lat === 'number' ? v.lat : localVenue.value.lat,
+      lng: typeof v.lng === 'number' ? v.lng : localVenue.value.lng,
+    })
+  },
+  { deep: true, immediate: true }
+)
+
+/* ───────── Fetch temple venue ───────── */
 onMounted(async () => {
-  if (!hasTempleVenueAssigned.value) return
-  if (props.pooja?.venueRel) return
-  const id = props.pooja?.venueId
-  if (!id) return
-  try {
-    const list = await fetchVenues()
-    const found = list.find(v => Number(v.id) === Number(id))
-    if (found) resolvedVenue.value = found
-  } catch {}
+  if (!hasTempleVenueAssigned.value || props.pooja?.venueRel) return
+  const venues = await fetchVenues()
+  resolvedVenue.value =
+    venues.find(v => Number(v.id) === Number(props.pooja.venueId)) || null
 })
+
+/* ───────── Handlers ───────── */
+function onAddressSelected(data) {
+  localVenue.value.addressLine = data.addressLine || ''
+  localVenue.value.city = data.city || ''
+  localVenue.value.state = data.state || ''
+  localVenue.value.zip = data.zip || ''
+  localVenue.value.lat = data.lat
+  localVenue.value.lng = data.lng
+
+  showNotification('Address selected', 'success')
+}
+
+function onLocationPicked(data) {
+  localVenue.value.lat = data.lat
+  localVenue.value.lng = data.lng
+}
 
 function nextStep() {
   if (useTemple.value) {
     const v = selectedVenue.value
-    const addr = [v?.title, v?.address].filter(Boolean).join(', ')
+
+    console.log('venue selected', v)
     emit('update-venue', {
-      address: addr || 'Temple Venue',
+      address: [v?.title, v?.address].filter(Boolean).join(', ') || 'Temple Venue',
+      city: '',
       state: '',
-      zip: v?.zipcode || ''
+      zip: v?.zipcode || '',
+      lat: null,
+      lng: null,
     })
     emit('next')
     return
   }
 
-  const { address, state, zip } = localVenue.value
-  if (!address || !state || !zip) {
-    showNotification('Please fill all fields', 'error')
-    return
-  }
-  if (!/^\d{4,10}$/.test(zip)) {
-    showNotification('Zip code must be numeric (4–10 digits)', 'error')
+  const { addressLine, lat, lng } = localVenue.value
+
+  if (!addressLine || !lat || !lng) {
+    showNotification('Please select a valid address', 'error')
     return
   }
 
-  emit('update-venue', { ...localVenue.value })
-  showNotification('Venue details saved', 'success')
+  emit('update-venue', {
+    address: [localVenue.addressExtra, addressLine].filter(Boolean).join(', '),
+    city: localVenue.city,
+    state: localVenue.state,
+    zip: localVenue.zip,
+    lat,
+    lng,
+  })
+
   emit('next')
 }
 </script>

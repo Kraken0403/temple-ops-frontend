@@ -3,7 +3,7 @@
   <section class="p-6 max-w-full mx-auto">
     <!-- Header + Controls -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
-      <h1 class="text-2xl font-bold">Pooja Bookings</h1>
+      <h1 class="text-2xl font-bold">Puja Bookings</h1>
 
       <div class="flex flex-wrap gap-3 items-center">
         <!-- Free-text Search -->
