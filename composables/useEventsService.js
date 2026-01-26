@@ -43,35 +43,44 @@ export function useEventsService() {
   function buildPayload(form, tz) {
     const inVenue = !!form.venueId
     const outsideVenue = !inVenue
-
+  
     return sanitizeDeep({
       name: String(form.name || '').trim(),
       description: form.description || null,
-
-      // venue fields
+  
+      // venue
       venueId: inVenue ? Number(form.venueId) : null,
       venue: outsideVenue ? form.venue || null : null,
       mapLink: outsideVenue ? form.mapLink || null : null,
-
+  
       isInVenue: inVenue,
       isOutsideVenue: outsideVenue,
-
+  
+      // 🔥 RECURRENCE (THIS WAS MISSING)
+      recurrenceType: form.recurrenceType || 'NONE',
+      recurrenceDays:
+        form.recurrenceType === 'CUSTOM'
+          ? form.recurrenceDays
+          : undefined,
+  
+      // dates
       date: buildDateTime(form.date, null, tz),
       endDate: buildDateTime(form.endDate, null, tz),
       startTime: buildDateTime(form.date, form.startTime, tz),
       endTime: buildDateTime(form.date, form.endTime, tz),
-
+  
       tags: form.tags,
       capacity: form.capacity != null ? Number(form.capacity) : undefined,
       price: form.price != null ? Number(form.price) : undefined,
       organizer: form.organizer || null,
       contactInfo: form.contactInfo || null,
       isPublic: typeof form.isPublic === 'boolean' ? form.isPublic : true,
-
+  
       featuredMediaId: form.featuredMediaId ?? undefined,
       clearFeaturedMedia: form.clearFeaturedMedia ?? false,
     })
   }
+  
 
   /* ───────────────────────────── API ───────────────────────────── */
 

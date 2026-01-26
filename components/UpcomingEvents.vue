@@ -131,7 +131,8 @@
                     </div>
 
                     <NuxtLink
-                      :to="`/events/${ev.id}`"
+                      :to="`/events/${ev.eventId}?occurrenceId=${ev.occurrenceId}`"
+
                       class="bg-[#570000] text-white px-4 py-2 rounded-[30px] text-sm font-semibold hover:bg-opacity-90 cursor-pointer"
                     >
                       Book
@@ -142,26 +143,28 @@
             </div>
 
             <!-- Pagination (events-based, 4 per page) -->
-            <div v-if="totalPages > 1" class="mt-6 flex items-center justify-center gap-2 flex-wrap">
+            <div v-if="totalPages > 1" class="mt-6 flex items-start justify-start gap-2 flex-wrap">
               <button
-                class="px-3 py-2 border rounded-md bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40"
+                class="px-3 py-2 border-[1px] border-[#ccc] rounded-md bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40"
                 :disabled="currentPage === 1"
                 @click="goPrevPage"
               >
                 Prev
               </button>
 
+
               <button
                 v-for="n in pageButtons"
                 :key="n.key"
-                class="px-3 py-2 border rounded-md bg-white hover:bg-gray-50 cursor-pointer"
-                :class="n.page === currentPage ? 'bg-[#570000] text-white border-[#570000]' : ''"
+                class="pagination-btn"
+                :class="{ active: n.page === currentPage }"
                 @click="goToPage(n.page)"
-                v-text="n.label"
-              />
+              >
+                {{ n.label }}
+              </button>
 
               <button
-                class="px-3 py-2 border rounded-md bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40"
+                class="px-3 py-2 border-[1px] border-[#ccc]  rounded-md bg-white hover:bg-gray-50 cursor-pointer disabled:opacity-40"
                 :disabled="currentPage === totalPages"
                 @click="goNextPage"
               >
@@ -198,7 +201,8 @@
                       <div class="font-semibold text-[#570000]">{{ ev.timeRange }}</div>
                       <div class="text-gray-800">{{ ev.name }}</div>
                       <NuxtLink
-                        :to="`/events/${ev.id}`"
+                        :to="`/events/${ev.eventId}?occurrenceId=${ev.occurrenceId}`"
+
                         class="inline-block mt-1 text-[11px] px-2 py-1 rounded-full bg-[#570000] text-white hover:bg-opacity-90 cursor-pointer"
                       >
                         Book
@@ -236,14 +240,15 @@
 
                   <ul class="space-y-2">
                     <li
-                      v-for="(ev, i) in (eventsByDay.get(cell.key) || []).slice(0,2)"
+                      v-for="(ev) in (eventsByDay.get(cell.key) || []).slice(0,2)"
                       :key="ev.id"
                       class="text-xs bg-[#570000]/5 rounded p-2"
                     >
                       <div class="font-semibold text-[#570000]">{{ ev.timeRange }}</div>
                       <div class="text-gray-800 truncate">{{ ev.name }}</div>
                       <NuxtLink
-                        :to="`/events/${ev.id}`"
+                        :to="`/events/${ev.eventId}?occurrenceId=${ev.occurrenceId}`"
+
                         class="inline-block mt-1 text-[11px] px-2 py-1 rounded-full bg-[#570000] text-white hover:bg-opacity-90 cursor-pointer"
                       >
                         Book
@@ -301,15 +306,21 @@
               <div class="mt-5 flex gap-3">
                 <NuxtLink
                   v-if="nextEvent"
-                  :to="`/events/${nextEvent.id}`"
+                  :to="`/events/${nextEvent.eventId}?occurrenceId=${nextEvent.occurrenceId}`"
                   class="flex-1 text-center bg-[#570000] text-white rounded-[30px] py-2 text-sm font-semibold hover:bg-opacity-90 cursor-pointer"
                 >
                   Book
                 </NuxtLink>
-                <div v-else class="w-full text-center text-gray-500 text-sm py-2 border rounded-[30px]">
+
+
+                <div
+                  v-else
+                  class="w-full text-center text-gray-500 text-sm py-2 border rounded-[30px]"
+                >
                   Nothing scheduled
                 </div>
               </div>
+
             </div>
           </div>
         </aside>
@@ -338,7 +349,7 @@ const timezone = ref('Asia/Kolkata') // fallback
 // View state
 const viewMode = ref('list') // 'list' | 'week' | 'month'
 const currentPage = ref(1)   // for list view
-const pageSize = ref(4)      // 4 events per page
+const pageSize = ref(3)      // 4 events per page
 
 // Period anchor (YYYY-MM-DD in configured timezone)
 const anchorYMD = ref('') // set to "today" on mount
@@ -425,6 +436,7 @@ function longDate(ymd) {
   return new Intl.DateTimeFormat('en-US', { timeZone: timezone.value, weekday:'long', month:'long', day:'numeric', year:'numeric' }).format(d)
 }
 
+
 /** Month short / weekday short for YMD */
 function monthShort(ymd) {
   const d = new Date(`${ymd}T12:00:00Z`)
@@ -453,32 +465,10 @@ function fmtDateLine(startIso, endIso) {
 }
 
 /* ---------------- Data shaping ---------------- */
-const normalizedUpcoming = computed(() => {
-  const n = now()
-  return (eventsRaw.value || [])
-    .map((e) => {
-      const start = e.startDate || e.date || e.startTime ? new Date(e.startDate || e.date || e.startTime) : null
-      const end = e.endDate || e.endTime ? new Date(e.endDate || e.endTime) : null
-      return {
-        id: e.id,
-        name: e.name || 'Untitled Event',
-        category: e.category || '',
-        start,
-        end,
-        startIso: e.startDate || e.date || e.startTime,
-        endIso: e.endDate || e.endTime,
-        ymd: start ? ymdForDate(start) : null,
-        timeRange: fmtTimeRange(e.startTime || e.startDate, e.endTime || e.endDate),
-        dateLine: fmtDateLine(e.startDate || e.startTime || e.date, e.endDate || e.endTime),
-        isInTemple: !!e.isInTemple,
-        venueTitle: e.venueRel?.title || e.venue || '',
-        venueAddress: e.venueRel?.address || '',
-        image: fullImageUrl(e.featuredMedia?.url),
-      }
-    })
-    .filter((x) => x.start && x.start >= n) // upcoming only
-    .sort((a, b) => a.start - b.start)
-})
+const normalizedUpcoming = computed(() =>
+  occurrenceEvents.value.sort((a, b) => a.start - b.start)
+)
+
 
 /* Search */
 const filtered = computed(() => {
@@ -587,26 +577,32 @@ const monthGrid = computed(() => {
 /* ---------- Common: events mapped by YMD for week/month ---------- */
 const eventsByDay = computed(() => {
   const map = new Map()
-  const relevantYMDs = new Set()
+
+  let relevantYMDs = new Set()
+
   if (viewMode.value === 'week') {
     weekDays.value.forEach(d => relevantYMDs.add(d.ymd))
   } else if (viewMode.value === 'month') {
     monthGrid.value.forEach(c => relevantYMDs.add(c.ymd))
   } else {
+    // list view uses paged events
     pagedEvents.value.forEach(e => relevantYMDs.add(e.ymd))
   }
 
   for (const e of filtered.value) {
-    if (!e.ymd) continue
-    if (!relevantYMDs.size || relevantYMDs.has(e.ymd)) {
-      if (!map.has(e.ymd)) map.set(e.ymd, [])
-      map.get(e.ymd).push(e)
-    }
+    if (!e.ymd || !relevantYMDs.has(e.ymd)) continue
+    if (!map.has(e.ymd)) map.set(e.ymd, [])
+    map.get(e.ymd).push(e)
   }
+
   // sort each day's events by start time
-  for (const [k, arr] of map) arr.sort((a, b) => a.start - b.start)
+  for (const arr of map.values()) {
+    arr.sort((a, b) => a.start - b.start)
+  }
+
   return map
 })
+
 
 /* ---------- Period navigation ---------- */
 const periodLabel = computed(() => {
@@ -629,41 +625,111 @@ const periodLabel = computed(() => {
 
 function setView(v) {
   viewMode.value = v
-  if (v === 'list') currentPage.value = 1
-  // keep anchorYMD as selected "today" period center
+  currentPage.value = 1   // 🔑 IMPORTANT
 }
+
+
+// function setView(v) {
+//   viewMode.value = v
+//   if (v === 'list') currentPage.value = 1
+//   // keep anchorYMD as selected "today" period center
+// }
 
 function goPrevPeriod() {
   if (viewMode.value === 'list') {
     goPrevPage()
   } else if (viewMode.value === 'week') {
-    anchorYMD.value = addDaysYMD(weekStart.value, -7)
+    anchorYMD.value = addDaysYMD(anchorYMD.value, -7)
   } else {
-    // month
     const [y, m] = anchorYMD.value.split('-').map(Number)
-    const d = new Date(Date.UTC(y, m - 2, 1)) // previous month first
+    const d = new Date(Date.UTC(y, m - 2, 1))
     anchorYMD.value = ymdForDate(d)
   }
 }
+
 function goNextPeriod() {
   if (viewMode.value === 'list') {
     goNextPage()
   } else if (viewMode.value === 'week') {
-    anchorYMD.value = addDaysYMD(weekStart.value, 7)
+    anchorYMD.value = addDaysYMD(anchorYMD.value, 7)
   } else {
     const [y, m] = anchorYMD.value.split('-').map(Number)
-    const d = new Date(Date.UTC(y, m, 1)) // next month first
+    const d = new Date(Date.UTC(y, m, 1))
     anchorYMD.value = ymdForDate(d)
   }
 }
+
+
+
 function goToday() {
   anchorYMD.value = ymdForDate(new Date())
 }
 
+const occurrenceEvents = computed(() => {
+  const n = now()
+
+  return (eventsRaw.value || []).flatMap((event) =>
+    (event.occurrences || []).map((occ) => {
+      const start = occ.startAt ? new Date(occ.startAt) : null
+      if (!start || start < n) return null
+
+      return {
+        // 🔑 identity
+        id: `${event.id}-${occ.id}`,      // unique for v-for
+        eventId: event.id,
+        occurrenceId: occ.id,
+
+        // display
+        name: event.name || 'Untitled Event',
+        category: event.category || '',
+        start,
+        end: occ.endAt ? new Date(occ.endAt) : null,
+        startIso: occ.startAt,
+        endIso: occ.endAt,
+
+        ymd: ymdForDate(new Date(occ.occurrenceDate)),
+        timeRange: fmtTimeRange(occ.startAt, occ.endAt),
+        dateLine: fmtDateLine(occ.startAt, occ.endAt),
+
+        venueTitle: event.venueRel?.title || event.venue || '',
+        venueAddress: event.venueRel?.address || '',
+        image: fullImageUrl(event.featuredMedia?.url),
+
+        // capacity (future-proof)
+        capacity: occ.capacity,
+        bookedCount: occ.bookedCount || 0,
+        canBook: occ.capacity == null || occ.bookedCount < occ.capacity,
+      }
+    })
+  ).filter(Boolean)
+})
+
+
 /* ---------- Upcoming card ---------- */
-const nextEvent = computed(() => filtered.value[0] || null)
+const nextEvent = computed(() =>
+  occurrenceEvents.value.length ? occurrenceEvents.value[0] : null
+)
+
 </script>
 
 <style scoped>
 /* small tweaks if needed */
+.pagination-btn {
+  padding: 8px 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  font-size: 14px;
+}
+
+.pagination-btn.active {
+  background: #570000;
+  color: white;
+  border-color: #570000;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
 </style>

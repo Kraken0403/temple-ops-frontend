@@ -123,6 +123,50 @@
               </div>
             </div>
 
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700">Recurrence</label>
+
+              <select
+                v-model="form.recurrenceType"
+                class="w-full p-2 border border-gray-300 rounded"
+              >
+              <option value="NONE">One-time</option>
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="MONTHLY">Monthly</option>
+              <option value="YEARLY">Yearly</option>
+              <option value="CUSTOM">Custom Days</option>
+
+              </select>
+
+              <div
+                v-if="form.recurrenceType === 'WEEKLY' && form.date"
+                class="text-sm text-gray-600"
+              >
+                Repeats every week on
+                <strong>
+                  {{ DateTime.fromISO(form.date).toFormat('cccc') }}
+                </strong>
+              </div>
+
+
+              <div v-if="form.recurrenceType === 'CUSTOM'" class="flex gap-2 flex-wrap">
+                <label
+                  v-for="d in days"
+                  :key="d.value"
+                  class="flex items-center gap-1 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    :value="d.value"
+                    v-model="form.recurrenceDays"
+                  />
+                  {{ d.label }}
+                </label>
+              </div>
+            </div>
+
+
             <!-- Venue Switch -->
             <div class="space-y-3">
               <div class="flex gap-4">
@@ -272,6 +316,17 @@
 </template>
 
 <script setup>
+const days = [
+  { label: 'Sun', value: 0 },
+  { label: 'Mon', value: 1 },
+  { label: 'Tue', value: 2 },
+  { label: 'Wed', value: 3 },
+  { label: 'Thu', value: 4 },
+  { label: 'Fri', value: 5 },
+  { label: 'Sat', value: 6 },
+]
+
+
 import { reactive, ref, watch, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { loadTimezone } from '@/utils/timezone'
@@ -302,7 +357,9 @@ const form = reactive({
   name: '', description: '', date: '', endDate: '', startTime: '', endTime: '',
   venueId: null, venue: '', mapLink: '', tags: '', capacity: null, price: null,
   organizer: '', contactInfo: '', isPublic: true, featuredMediaId: null,
-  clearFeaturedMedia: false
+  clearFeaturedMedia: false,
+  recurrenceType: 'NONE',
+  recurrenceDays: []
 })
 
 const previewUrl = ref(null)
@@ -362,6 +419,11 @@ function hydrateFromEvent(ev) {
     form.venueId = null
   }
 
+  form.recurrenceType = ev.recurrenceType || 'NONE'
+  form.recurrenceDays = Array.isArray(ev.recurrenceDays)
+    ? [...ev.recurrenceDays]
+    : []
+
   form.tags = Array.isArray(ev.tags) ? ev.tags.join(',') : ev.tags || ''
   form.capacity = ev.capacity ?? null
   form.price = ev.price ?? null
@@ -383,6 +445,13 @@ onMounted(async () => {
   hydrateFromEvent(props.event)
 })
 watch(() => props.event, (e) => hydrateFromEvent(e))
+
+watch(() => form.recurrenceType, (val) => {
+  if (val !== 'CUSTOM') {
+    form.recurrenceDays = []
+  }
+})
+
 
 function close() { emit('close') }
 
@@ -413,11 +482,17 @@ async function submitForm() {
     }
 
     const payload = {
-      ...form,
-      tags: (form.tags || '').split(',').map(t => t.trim()).filter(Boolean),
-      isInVenue: venueMode.value === 'in',
-      isOutsideVenue: venueMode.value === 'out'
-    }
+        ...form,
+        recurrenceType: form.recurrenceType,
+        recurrenceDays:
+          form.recurrenceType === 'CUSTOM'
+            ? form.recurrenceDays
+            : undefined,
+        tags: (form.tags || '').split(',').map(t => t.trim()).filter(Boolean),
+      }
+
+      console.log('Payload', payload)
+
 
     if (props.event?.id) {
       await updateEvent(props.event.id, payload, null, tz.value)

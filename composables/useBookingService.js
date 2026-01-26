@@ -48,23 +48,25 @@ export const useBookingService = () => {
    * - discount
    * - total
    */
-  const quoteBooking = async (payload) => {
+   const quoteBooking = async (payload) => {
     const res = await fetch(`${base}/quote`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({
         poojaId: Number(payload.poojaId),
-
-        // Optional — only for outside venue
+  
+        // Only coordinates matter for quote
         venueLat: payload.venueLat ?? undefined,
         venueLng: payload.venueLng ?? undefined,
-
+  
         couponCode: payload.couponCode?.trim() || undefined,
       }),
     })
-
+  
     return parseOrThrow(res, 'Failed to calculate price')
   }
+  
+  
 
   /**
    * Create booking
@@ -81,6 +83,8 @@ export const useBookingService = () => {
         bookingDate: payload.bookingDate,
         start: payload.start,
         end: payload.end,
+
+        venueType: payload.venueType,
 
         userName: payload.userName || null,
         userEmail: payload.userEmail || null,

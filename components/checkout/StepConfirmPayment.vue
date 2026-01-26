@@ -206,50 +206,118 @@ onMounted(async () => {
     console.log('quote:', props.quote)
     console.log('quoteError:', props.quoteError)
     console.groupEnd()
+
+
   await loadTimezone()
 })
 
 
+
+
 const baseAmount = computed(() => {
-  if (props.pooja.isOutsideVenue) {
-    return props.pooja.outsideAmount ?? props.pooja.amount
+  if (
+    props.venue?.venueType === 'CUSTOM' &&
+    props.pooja.outsideAmount != null
+  ) {
+    return props.pooja.outsideAmount
   }
   return props.pooja.amount
 })
 
 
+
 async function submit () {
-  if (props.pooja.isOutsideVenue && !props.quote) return
-  if (props.quoteError) return
-  console.log('🚀 BOOKING SUBMIT PAYLOAD', {
-    props
-  })
+  // ─────────────────────────────
+  // HARD GUARDS (NO SILENT FAILS)
+  // ─────────────────────────────
+  if (props.pooja.isOutsideVenue && !props.quote) {
+    showNotification('Price not calculated yet', 'error')
+    return
+  }
+
+  if (props.quoteError) {
+    showNotification(props.quoteError, 'error')
+    return
+  }
+
+  if (!props.venue?.venueType) {
+    showNotification('Venue type missing. Please go back and select venue.', 'error')
+    return
+  }
+
+  // CUSTOM venue MUST have coordinates
+  if (
+    props.venue.venueType === 'CUSTOM' &&
+    (!props.venue.lat || !props.venue.lng)
+  ) {
+    showNotification('Please select a valid location on the map', 'error')
+    return
+  }
+
   submitting.value = true
 
-  await submitBooking({
-    poojaId: props.pooja.id,
-    priestId: props.selectedSlot.slot.priestId,
+  try {
+    console.group('🚀 BOOKING SUBMIT PAYLOAD')
+    console.log({
+      poojaId: props.pooja.id,
+      priestId: props.selectedSlot.slot.priestId,
+      bookingDate: props.selectedSlot.bookingDate,
+      start: props.selectedSlot.slot.start,
+      end: props.selectedSlot.slot.end,
+      venueType: props.venue.venueType,
+      venue: props.venue,
+      user: props.user,
+    })
+    console.groupEnd()
 
-    bookingDate: props.selectedSlot.bookingDate,
-    start: props.selectedSlot.slot.start,
-    end: props.selectedSlot.slot.end,
+    await submitBooking({
+      // ───────── Relations ─────────
+      poojaId: props.pooja.id,
+      priestId: props.selectedSlot.slot.priestId,
 
-    // ✅ user snapshot
-    userName: props.user?.name || null,
-    userEmail: props.user?.email || null,
-    userPhone: props.user?.phone || null,
+      // ───────── Slot snapshot ─────────
+      bookingDate: props.selectedSlot.bookingDate,
+      start: props.selectedSlot.slot.start,
+      end: props.selectedSlot.slot.end,
 
-    // ✅ venue snapshot (THIS IS THE FIX)
-    venueAddress: props.venue?.address || null,
-    venueState: props.venue?.state || null,
-    venueZip: props.venue?.zip || null,
-    venueLat: props.venue?.lat ?? undefined,
-    venueLng: props.venue?.lng ?? undefined,
-})
+      // ───────── Venue intent (🔥 REQUIRED) ─────────
+      venueType: props.venue.venueType,
 
+      // ───────── User snapshot ─────────
+      userName: props.user?.name || null,
+      userEmail: props.user?.email || null,
+      userPhone: props.user?.phone || null,
 
-  showNotification('Booking successful!', 'success')
-  router.push('/confirmation')
+      // ───────── Venue snapshot ─────────
+      venueAddress: props.venue?.address || null,
+      venueState: props.venue?.state || null,
+      venueZip: props.venue?.zip || null,
+
+      // Only sent for CUSTOM venue
+      venueLat:
+        props.venue.venueType === 'CUSTOM'
+          ? props.venue.lat
+          : undefined,
+
+      venueLng:
+        props.venue.venueType === 'CUSTOM'
+          ? props.venue.lng
+          : undefined,
+    })
+
+    showNotification('Booking successful!', 'success')
+    router.push('/confirmation')
+
+  } catch (err) {
+    console.error('❌ BOOKING FAILED', err)
+    showNotification(
+      err?.message || 'Booking failed. Please try again.',
+      'error',
+    )
+  } finally {
+    submitting.value = false
+  }
 }
+
 
 </script>

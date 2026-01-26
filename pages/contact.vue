@@ -8,7 +8,7 @@
       />
   
       <!-- Contact Form -->
-      <section class="bg-white max-w-[992px] mx-auto rounded pt-16">
+      <section class="bg-white px-[20px] max-w-[992px] mx-auto rounded pt-16">
         <h2 class="text-[32px] font-bold mb-[40px] text-center">Send Us a Message</h2>
         <form @submit.prevent="submitForm" class="space-y-4">
           <div>
@@ -94,7 +94,7 @@
               </svg>
             </div>
             <h3 class="font-semibold mb-2">Get In Touch</h3>
-            <p>Email: info@sanatantemple.org<br/>Phone: +91 98765 43210</p>
+            <p>Email: info@sanatanmandirtampa.org<br/>Phone: +1 813 221 4482</p>
           </div>
         </div>
       </section>

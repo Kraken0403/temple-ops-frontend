@@ -60,12 +60,14 @@ const user = ref({
 })
 
 const venue = ref({
+  venueType: pooja.value?.isOutsideVenue ? 'CUSTOM' : 'TEMPLE',
   address: '',
   state: '',
   zip: '',
   lat: null,
   lng: null,
 })
+
 
 const quote = ref(null)
 const quoting = ref(false)
@@ -125,22 +127,28 @@ function handleBack() {
 /* ───────── Quote Logic (FIXED & SAFE) ───────── */
 watch(
   () => ({
+    poojaId: pooja.value?.id,
     slot: selectedSlot.value,
     lat: venue.value?.lat,
     lng: venue.value?.lng,
+    venueType: venue.value?.venueType,
   }),
-  async ({ slot, lat, lng }) => {
+  async ({ poojaId, slot, lat, lng }) => {
     console.group('🧮 QUOTE WATCHER')
 
-    if (!slot || !pooja.value) {
+    if (!poojaId || !slot) {
       quote.value = null
       quoteError.value = null
-      console.info('⏸ waiting for slot / pooja')
+      console.info('⏸ waiting for pooja / slot')
       console.groupEnd()
       return
     }
 
-    if (pooja.value.isOutsideVenue && (!lat || !lng)) {
+    if (
+        pooja.value.isOutsideVenue &&
+        venue.value.venueType === 'CUSTOM' &&
+        (!lat || !lng)
+      )  {
       quote.value = null
       quoteError.value = null
       console.info('⏳ waiting for venue location')
@@ -153,7 +161,8 @@ watch(
 
     try {
       const res = await quoteBooking({
-        poojaId: pooja.value.id,
+        poojaId,
+        venueType: venue.value.venueType, 
         venueLat: lat ?? undefined,
         venueLng: lng ?? undefined,
       })
@@ -171,6 +180,7 @@ watch(
   },
   { immediate: true, flush: 'post' }
 )
+
 
 /* ───────── Step Guard ───────── */
 watch(steps, (arr) => {

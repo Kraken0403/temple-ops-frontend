@@ -6,7 +6,7 @@ export const useMediaUrl = () => {
   const apiBase = cfg?.public?.apiBase || ''
   let origin = ''
   try {
-    origin = new URL(apiBase).origin // e.g. http://localhost:3000
+    origin = new URL(apiBase).origin
   } catch {
     origin = ''
   }

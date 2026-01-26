@@ -26,7 +26,7 @@ export const usePermissionService = () => {
     if (!res.ok) throw new Error('Failed to load role permissions')
     const rels = await res.json()   // [{ roleId, permissionId }, …]
     // return only the IDs
-    console.log('rels', rels)
+    // console.log('rels', rels)
 
     return rels.map(r => r.id)
   }

@@ -5,6 +5,7 @@
     <div v-if="loading" class="flex items-center justify-center h-60 text-gray-500">
       Loading event details...
     </div>
+
     <div v-else-if="!event" class="flex items-center justify-center h-60 text-red-500">
       Event not found
     </div>
@@ -36,7 +37,6 @@
           <div class="space-y-2">
             <h1 class="text-3xl font-bold text-gray-900">{{ event.name }}</h1>
 
-            <!-- Highlighted Price (or Free) -->
             <div class="text-2xl font-semibold text-[#570000]">
               {{ event.price != null ? formatMoney(event.price, settingsCurrency) : 'Free' }}
             </div>
@@ -46,24 +46,24 @@
             </p>
           </div>
 
-          <!-- Quick chips (date/time/venue/capacity/tags) -->
+          <!-- Chips -->
           <div class="flex flex-wrap gap-2">
             <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm">
               <span class="material-icons text-[16px]">event</span>
-              {{ formatDate(event.date, 'dd LLL yyyy') }}
-              <template v-if="event.endDate"> – {{ formatDate(event.endDate, 'dd LLL yyyy') }}</template>
+              {{ displayDate ? formatDate(displayDate, 'dd LLL yyyy') : 'Date TBA' }}
             </span>
 
-            <span v-if="event.startTime" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm">
+            <span
+              v-if="displayStartTime"
+              class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm"
+            >
               <span class="material-icons text-[16px]">schedule</span>
-              {{ formatTime(event.startTime, 'hh:mm a') }}
-            </span>
-            <span v-if="event.endTime" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm">
-              <span class="material-icons text-[16px]">more_time</span>
-              {{ formatTime(event.endTime, 'hh:mm a') }}
+              {{ formatTime(displayStartTime, 'hh:mm a') }}
+              <template v-if="displayEndTime">
+                – {{ formatTime(displayEndTime, 'hh:mm a') }}
+              </template>
             </span>
 
-            <!-- Venue chip -->
             <span
               v-if="event.venue || event.venueRel"
               class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm"
@@ -73,16 +73,15 @@
             </span>
 
             <span
-              v-if="event.capacity != null"
+              v-if="nextOccurrence?.capacity != null"
               class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-sm"
             >
               <span class="material-icons text-[16px]">groups</span>
-              Capacity {{ event.capacity }}
+              Capacity {{ nextOccurrence.capacity }}
             </span>
 
-            <!-- ✅ Remaining Seats -->
             <span
-              v-if="event.capacity != null"
+              v-if="nextOccurrence?.capacity != null"
               class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-50 text-pink-700 text-sm"
             >
               <span class="material-icons text-[16px]">event_seat</span>
@@ -99,14 +98,11 @@
             </span>
           </div>
 
-          <!-- Venue Address details -->
+          <!-- Venue Address -->
           <div v-if="event.venueRel?.address || event.venue" class="border rounded-lg p-4 bg-gray-50">
             <h3 class="text-sm font-semibold text-gray-700 mb-1">Venue Address</h3>
             <p class="text-gray-800">
               {{ event.venueRel?.address || event.venue }}
-              <template v-if="event.venueRel?.zipcode">
-                – {{ event.venueRel.zipcode }}
-              </template>
             </p>
             <a
               v-if="event.mapLink || event.venueRel?.mapLink"
@@ -122,21 +118,37 @@
           <!-- CTA -->
           <div class="pt-2">
             <NuxtLink
-              :to="`/events/checkout?eventId=${event.id}`"
+              v-if="isOpenForRegistration && activeOccurrence"
+              :to="`/events/checkout?eventId=${event.id}&occurrenceId=${activeOccurrence.id}`"
               class="inline-flex items-center gap-2 bg-[#570000] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#650000] transition"
             >
               <span class="material-icons text-[18px]">event_available</span>
               Book Your Seats
             </NuxtLink>
+
+            <button
+              v-else
+              disabled
+              class="inline-flex items-center gap-2 bg-gray-300 text-gray-600 px-6 py-3 rounded-lg font-medium cursor-not-allowed"
+            >
+              Registrations Closed
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Sponsorships Section -->
+      <!-- Sponsorships -->
       <div class="mt-12">
         <h2 class="text-2xl font-bold text-gray-900 mb-4">Sponsorships</h2>
-        <div v-if="loadingSponsorships" class="text-gray-500">Loading sponsorships…</div>
-        <div v-else-if="!sponsorships.length" class="text-gray-500">No sponsorships available</div>
+
+        <div v-if="loadingSponsorships" class="text-gray-500">
+          Loading sponsorships…
+        </div>
+
+        <div v-else-if="!sponsorships.length" class="text-gray-500">
+          No sponsorships available
+        </div>
+
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <div
             v-for="s in sponsorships"
@@ -144,12 +156,15 @@
             class="border rounded-lg bg-white shadow p-4 flex flex-col justify-between"
           >
             <div>
-              <h3 class="font-semibold text-gray-900">{{ s.sponsorshipType?.name }}</h3>
+              <h3 class="font-semibold text-gray-900">
+                {{ s.sponsorshipType?.name }}
+              </h3>
               <p class="text-sm text-gray-600 mt-1">
                 Price: {{ formatMoney(s.price, settingsCurrency) }}<br />
-                Slots: {{ s.maxSlots }} 
+                Slots: {{ s.maxSlots }}
               </p>
             </div>
+
             <NuxtLink
               :to="`/sponsorships/checkout?sponsorshipId=${s.id}`"
               class="mt-4 inline-flex justify-center items-center px-4 py-2 bg-[#570000] text-white text-sm font-medium rounded-lg hover:bg-[#650000] transition"
@@ -163,75 +178,117 @@
   </section>
 </template>
 
-<script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRuntimeConfig } from '#app'
-import { useEventsService } from '~/composables/useEventsService'
-import { useSettingsService } from '~/composables/useSettingsService'
-import { useSponsorshipService } from '~/composables/useSponsorshipService'
-import { loadTimezone, formatDate, formatTime } from '~/utils/timezone'
+  <script setup>
+  import { ref, onMounted, computed } from 'vue'
+  import { useRoute, useRuntimeConfig } from '#app'
+  import { useEventsService } from '~/composables/useEventsService'
+  import { useSettingsService } from '~/composables/useSettingsService'
+  import { useSponsorshipService } from '~/composables/useSponsorshipService'
+  import { loadTimezone, formatDate, formatTime } from '~/utils/timezone'
+  import { useNextOccurrence } from '~/composables/useEventOccurrences'
 
-const route = useRoute()
-const config = useRuntimeConfig().public
-const { getEventById } = useEventsService()
-const { getSettings }  = useSettingsService()
-const { getSponsorshipsForEvent } = useSponsorshipService()
+  const route = useRoute()
+  const config = useRuntimeConfig().public
 
-const event = ref(null)
-const sponsorships = ref([])
-const loading = ref(true)
-const loadingSponsorships = ref(false)
-const settingsCurrency = ref('INR')
+  const { getEventById } = useEventsService()
+  const { getSettings } = useSettingsService()
+  const { getSponsorshipsForEvent } = useSponsorshipService()
 
-const remainingSeats = computed(() => {
-  if (!event.value || event.value.capacity == null) return 0
-  const booked = event.value.bookedCount || (event.value.registrations?.length || 0)
-  return Math.max(event.value.capacity - booked, 0)
+  const event = ref(null)
+  const sponsorships = ref([])
+  const loading = ref(true)
+  const loadingSponsorships = ref(false)
+  const settingsCurrency = ref('INR')
+
+  const nextOccurrence = useNextOccurrence(event)
+
+  const selectedOccurrenceId = computed(() =>
+    Number(route.query.occurrenceId || null)
+  )
+
+  const activeOccurrence = computed(() => {
+  if (!event.value?.occurrences?.length) return null
+
+  // If URL explicitly specifies an occurrence → use it
+  if (selectedOccurrenceId.value) {
+    return (
+      event.value.occurrences.find(
+        o => o.id === selectedOccurrenceId.value
+      ) || null
+    )
+  }
+
+  // Otherwise fallback to next upcoming occurrence
+  return nextOccurrence.value
 })
 
-function fullUrl(path) {
-  if (!path) return ''
-  return path.startsWith('http') ? path : `${config.apiBase}${path}`
-}
 
-function currencySymbol(code) {
-  const map = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'د.إ' }
-  return map[code] || '₹'
-}
-function formatMoney(amount, code) {
-  if (amount == null) return currencySymbol(code) + '0'
-  try {
+const remainingSeats = computed(() => {
+  const occ = activeOccurrence.value
+  if (!occ || occ.capacity == null) return 0
+  return Math.max(occ.capacity - (occ.bookedCount || 0), 0)
+})
+
+
+const isOpenForRegistration = computed(() => {
+  const occ = activeOccurrence.value
+  if (!occ) return false
+  if (occ.capacity == null) return true
+  return remainingSeats.value > 0
+})
+
+  const displayDate = computed(() =>
+    nextOccurrence.value?.occurrenceDate || event.value?.date || null
+  )
+
+  const displayStartTime = computed(() =>
+    nextOccurrence.value?.startAt || null
+  )
+
+  const displayEndTime = computed(() =>
+    nextOccurrence.value?.endAt || null
+  )
+
+  /* ───────────── Helpers ───────────── */
+
+  function fullUrl(path) {
+    if (!path) return ''
+    return path.startsWith('http') ? path : `${config.apiBase}${path}`
+  }
+
+  function formatMoney(amount, code) {
+    if (amount == null) return 'Free'
     return new Intl.NumberFormat(
       code === 'INR' ? 'en-IN' : 'en-US',
       { style: 'currency', currency: code, maximumFractionDigits: 0 }
-    ).format(Number(amount))
-  } catch {
-    return `${currencySymbol(code)}${Number(amount).toLocaleString()}`
+    ).format(amount)
   }
-}
 
-onMounted(async () => {
-  try {
-    const s = await getSettings()
-    settingsCurrency.value = s?.currency || 'INR'
-    await loadTimezone() // ✅ init timezone from settings
-    event.value = await getEventById(route.params.id)
+  /* ───────────── Init ───────────── */
 
-    if (event.value?.id) {
-      loadingSponsorships.value = true
-      sponsorships.value = await getSponsorshipsForEvent(event.value.id)
+  onMounted(async () => {
+    try {
+      const s = await getSettings()
+      settingsCurrency.value = s?.currency || 'INR'
+      await loadTimezone()
+
+      event.value = await getEventById(route.params.id)
+      console.log('Single Event: ', event.value)
+      if (event.value?.id) {
+        loadingSponsorships.value = true
+        sponsorships.value = await getSponsorshipsForEvent(event.value.id)
+      }
+    } catch (e) {
+      console.error('Failed to load event:', e)
+    } finally {
+      loading.value = false
+      loadingSponsorships.value = false
     }
-  } catch (e) {
-    console.error('❌ Failed to load event:', e)
-  } finally {
-    loading.value = false
-    loadingSponsorships.value = false
-  }
-})
-</script>
+  })
+  </script>
 
-<style scoped>
-.material-icons {
-  vertical-align: -3px;
-}
-</style>
+  <style scoped>
+  .material-icons {
+    vertical-align: -3px;
+  }
+  </style>

@@ -3,8 +3,8 @@ import { useRuntimeConfig, useCookie } from '#app'
 
 export function useMediaService() {
   const config = useRuntimeConfig().public
-  const apiBase = config.apiBase                       // e.g. http://localhost:3000/api/v1
-  const origin = apiBase.replace(/\/api\/v1\/?$/, '')  // e.g. http://localhost:3000
+  const apiBase = config.apiBase                       
+  const origin = apiBase.replace(/\/api\/v1\/?$/, '')  
 
   // read a fresh token every call (prevents stale auth after login/logout)
   const authHeaders = () => {

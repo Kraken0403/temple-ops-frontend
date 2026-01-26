@@ -1,16 +1,16 @@
 <template>
   <header class="w-full">
     <!-- Top Bar -->
-    <div class="bg-black text-white flex justify-between items-center px-[80px] py-2 text-sm">
-      <div class="flex space-x-4">
+    <div class="bg-black text-white flex flex-col md:flex-row justify-between items-center md:px-[80px] px-[20px] py-2 text-sm">
+      <div class="flex flex-col md:flex-row space-x-4 w-full md:w-[50%]">
         <a href="tel:+18132214482" class="hover:underline">+1 813 221 4482</a>
-        <a href="mailto:info@sanatantemple.org" class="hover:underline">info@sanatantemple.org</a>
+        <a href="mailto:info@sanatantemple.org" class="hover:underline">info@sanatanmandirtampa.org</a>
       </div>
 
       <!-- Right cluster: socials (always) + auth -->
-      <div class="flex items-center space-x-4">
+      <div class="hidden md:flex items-center justify-between md:justify-end w-full md:w-[50%] space-x-4">
         <!-- Socials (inline SVGs, inherit currentColor) -->
-        <div class="flex items-center gap-5">
+        <div class="hidden md:flex items-center  gap-5">
           <!-- Facebook -->
           <a
             href="https://www.facebook.com/159711827452044"
@@ -93,7 +93,7 @@
     </div>
 
     <!-- Main Navbar -->
-    <nav class="bg-[#f5f5f5] px-[80px] py-3 shadow-sm relative">
+    <nav class="bg-[#f5f5f5] px-[20px] md:px-[80px] py-3 shadow-sm relative">
       <div class="flex justify-between items-center">
         <!-- Logo -->
         <NuxtLink to="/" class="flex items-center">

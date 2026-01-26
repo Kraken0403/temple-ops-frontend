@@ -11,9 +11,17 @@
     <section class="bg-[#F8F9FA] py-16">
       <div class="max-w-[1190px] mx-auto px-4 space-y-8">
         <!-- Loading / Error / Empty -->
-        <div v-if="loading" class="text-center text-gray-500">Loading priests…</div>
-        <div v-else-if="error" class="text-center text-red-600">Failed to load priests.</div>
-        <div v-else-if="!priests.length" class="text-center text-gray-500">No priests found.</div>
+        <div v-if="loading" class="text-center text-gray-500">
+          Loading priests…
+        </div>
+
+        <div v-else-if="error" class="text-center text-red-600">
+          Failed to load priests.
+        </div>
+
+        <div v-else-if="!priests.length" class="text-center text-gray-500">
+          No priests found.
+        </div>
 
         <!-- Cards -->
         <div
@@ -29,59 +37,64 @@
             <div class="w-full md:w-1/3">
               <div class="w-full h-64 md:h-full rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
                 <img
-                  v-if="p.photo"
-                  :src="fullUrl(p.photo)"
+                  v-if="priestImage(p)"
+                  :src="priestImage(p)"
                   :alt="p.name"
                   class="w-full h-full object-cover"
                 />
+
                 <div
                   v-else
                   class="w-full h-full flex items-center justify-center text-gray-400"
                 >
                   No Image
                 </div>
+
               </div>
             </div>
 
             <!-- Details -->
             <div class="flex-1 flex flex-col justify-between">
               <div class="space-y-3">
-                <h3 class="text-2xl font-bold text-[#570000]">{{ p.name }}</h3>
+                <h3 class="text-2xl font-bold text-[#570000]">
+                  {{ p.name }}
+                </h3>
 
                 <p v-if="p.specialty" class="text-gray-800">
-                  <span class="font-semibold text-gray-700">Specialty:</span>
-                  <span class="ml-1">{{ p.specialty }}</span>
+                  <span class="font-semibold">Specialty:</span>
+                  {{ p.specialty }}
                 </p>
 
                 <!-- Chips -->
-                <div class="flex flex-wrap gap-2 mt-2">
+                <div class="flex flex-wrap gap-2">
                   <span
-                    v-if="p.languages?.length"
-                    class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm"
+                    v-if="Array.isArray(p.languages) && p.languages.length"
+                    class="chip"
                   >
-                    <span class="material-icons text-[16px]">translate</span>
-                    {{ (Array.isArray(p.languages) ? p.languages : []).join(', ') }}
+                    <span class="material-icons">translate</span>
+                    {{ p.languages.join(', ') }}
                   </span>
+
                   <span
-                    v-if="p.qualifications?.length"
-                    class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm"
+                    v-if="Array.isArray(p.qualifications) && p.qualifications.length"
+                    class="chip"
                   >
-                    <span class="material-icons text-[16px]">school</span>
-                    {{ (Array.isArray(p.qualifications) ? p.qualifications : []).join(', ') }}
+                    <span class="material-icons">school</span>
+                    {{ p.qualifications.join(', ') }}
                   </span>
                 </div>
 
                 <!-- Address -->
                 <p v-if="p.address" class="text-gray-700">
-                  <span class="font-semibold text-gray-700">Address:</span>
-                  <span class="ml-1">{{ p.address }}</span>
+                  <span class="font-semibold">Address:</span>
+                  {{ p.address }}
                 </p>
               </div>
 
               <!-- Contact -->
-              <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
+              <div class="mt-6 flex justify-between text-sm text-gray-700">
                 <div class="flex items-center gap-2">
-                  <i class="material-icons text-[#570000]">phone</i>
+                  <span class="material-icons text-[#570000]">phone</span>
                   <a
                     v-if="p.contactNo"
                     :href="`tel:${p.contactNo}`"
@@ -93,7 +106,7 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                  <i class="material-icons text-[#570000]">email</i>
+                  <span class="material-icons text-[#570000]">email</span>
                   <a
                     v-if="p.email"
                     :href="`mailto:${p.email}`"
@@ -114,25 +127,72 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRuntimeConfig } from '#app'
 import PageHero from '@/components/PageHero.vue'
 import { usePriestService } from '@/composables/usePriestService'
-import { useRuntimeConfig } from '#app'
 import heroBg from '@/assets/images/sample-2.webp'
 
-const { fetchPriests } = usePriestService()
-const config   = useRuntimeConfig().public
-const priests  = ref([])
-const loading  = ref(true)
-const error    = ref(false)
+/* ================= STATE ================= */
+const priests = ref([])
+const loading = ref(true)
+const error   = ref(false)
 
-function fullUrl(path) {
-  if (!path) return ''
-  return path.startsWith('http') ? path : `${config.apiBase}${path}`
+const { fetchPriests } = usePriestService()
+const config = useRuntimeConfig().public
+
+/* ================= IMAGE NORMALIZER ================= */
+function getPriestImage(p) {
+  if (!p) return ''
+
+  // Case 1: p.photo is a STRING
+  if (typeof p.photo === 'string') {
+    return normalizeUrl(p.photo)
+  }
+
+  // Case 2: p.photo is an OBJECT
+  if (typeof p.photo === 'object') {
+    const path =
+      p.photo.url ||
+      p.photo.path ||
+      p.photo.fileName ||
+      ''
+
+    return path ? normalizeUrl(path) : ''
+  }
+
+  return ''
 }
 
+function priestImage(p) {
+  if (!p?.featuredMedia?.url) return ''
+
+  const url = p.featuredMedia.url
+
+  // absolute already
+  if (url.startsWith('http')) return url
+
+  // relative → make absolute
+  return `${config.apiBase}${url}`
+}
+
+
+function normalizeUrl(path) {
+  if (!path) return ''
+
+  // already absolute
+  if (path.startsWith('http')) return path
+
+  // ensure leading slash
+  const safePath = path.startsWith('/') ? path : `/${path}`
+  return `${config.apiBase}${safePath}`
+}
+
+/* ================= FETCH ================= */
 onMounted(async () => {
   try {
-    priests.value = await fetchPriests()
+    const data = await fetchPriests()
+    priests.value = Array.isArray(data) ? data : []
+    console.log(priests.value)
   } catch (e) {
     console.error('❌ Failed to load priests:', e)
     error.value = true
@@ -144,7 +204,17 @@ onMounted(async () => {
 
 <style scoped>
 .material-icons {
-  font-size: 20px;
+  font-size: 18px;
   vertical-align: middle;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #f3f4f6;
+  border-radius: 999px;
+  font-size: 14px;
 }
 </style>

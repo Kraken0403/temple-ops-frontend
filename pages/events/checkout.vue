@@ -7,7 +7,7 @@
     </div>
 
     <div
-      v-else-if="!event.isOpenForRegistration"
+        v-else-if="!selectedOccurrence"
       class="max-w-lg text-center space-y-6 bg-white p-10 rounded-xl shadow-sm"
     >
       <p class="text-gray-700 text-lg font-medium">
@@ -30,7 +30,11 @@
       <div>
         <h1 class="text-2xl font-semibold mb-1 text-gray-800">Event Checkout</h1>
         <p class="text-sm text-gray-500 mb-6">
-          {{ event.name }} — {{ formatDateRange(event.date, event.endDate) }}
+          {{ event.name }} — {{ formatDateRange(
+                  selectedOccurrence?.startAt,
+                  selectedOccurrence?.endAt
+                ) }}
+
         </p>
 
         <h2 class="text-lg font-semibold text-gray-800 mb-4">Contact Information</h2>
@@ -105,13 +109,34 @@
           </div>
 
           <!-- Button -->
-          <button
+          <!-- <button
             type="submit"
             :disabled="!isFormValid || submitting || couponInvalidBlock"
             class="w-full mt-6 bg-orange-600 text-white rounded-md py-3 font-medium hover:bg-orange-700 cursor-pointer transition disabled:opacity-50"
           >
             {{ submitting ? 'Booking…' : 'Book Event' }}
+          </button> -->
+          <button
+            v-if="!showPaymentModal"
+            type="submit"
+            :disabled="!isFormValid || submitting || couponInvalidBlock"
+            class="w-full mt-6 bg-orange-600 text-white rounded-md py-3 font-medium hover:bg-orange-700 transition disabled:opacity-50"
+          >
+            {{ submitting ? 'Processing…' : 'Proceed to Payment' }}
           </button>
+
+          <!-- <div v-if="showPayment" class="mt-6">
+            <PayPalButton
+              :amount="total"
+              purpose="EVENT"
+              :reference-id="bookingId"
+            />
+            <p class="text-xs text-gray-500 mt-2 text-center">
+              You’ll be redirected to PayPal to complete your payment securely.
+            </p>
+          </div> -->
+
+
           <p v-if="couponInvalidBlock" class="text-xs text-red-600 mt-2">
             Please remove or fix the coupon before booking.
           </p>
@@ -131,7 +156,7 @@
         <!-- Event Date Range -->
         <div class="flex items-start justify-between mb-3">
           <div>
-            <p class="font-medium text-gray-900">{{ formatDateRange(event.date, event.endDate) }}</p>
+            <p class="font-medium text-gray-900">{{ formatDateRange(selectedOccurrence?.startAt, selectedOccurrence?.endAt) }}</p>
           </div>
           <div class="w-8 h-8 flex items-center justify-center bg-white border rounded-full text-sm text-gray-700">
             <i class="uil uil-calendar-alt"></i>
@@ -151,6 +176,45 @@
         <div v-if="event.description" class="border-t border-gray-200 pt-3 mb-3">
           <p class="text-sm text-gray-700">{{ event.description }}</p>
         </div>
+
+        <!-- Pax Selector -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Number of Tickets
+            </label>
+
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                @click="pax = Math.max(1, pax - 1)"
+                class="w-9 h-9 rounded-md border flex items-center justify-center text-lg"
+              >
+                −
+              </button>
+
+              <input
+                type="number"
+                v-model.number="pax"
+                min="1"
+                :max="selectedOccurrence?.capacity || 99"
+
+                class="w-16 text-center border rounded-md py-2"
+              />
+
+              <button
+                type="button"
+                @click="pax = Math.min((event.capacity || 99), pax + 1)"
+                class="w-9 h-9 rounded-md border flex items-center justify-center text-lg"
+              >
+                +
+              </button>
+            </div>
+            <p v-if="selectedOccurrence?.capacity" class="text-xs text-gray-500 mt-1">
+              {{ selectedOccurrence.capacity - (selectedOccurrence.bookedCount || 0) }}
+              tickets remaining
+            </p>
+          </div>
+
 
         <!-- Coupon box -->
         <div class="border-t border-gray-200 pt-4 mt-2">
@@ -215,7 +279,7 @@
     </div>
 
     <!-- ✅ Success -->
-    <div v-else class="max-w-lg mx-auto bg-white p-10 rounded-xl shadow-sm text-center space-y-4">
+    <div v-else class="max-w-lg h-fit mx-auto bg-white p-10 rounded-xl shadow-sm text-center space-y-4">
       <h2 class="text-2xl font-semibold text-green-700">Booking Confirmed!</h2>
       <p class="text-gray-700">
         Your booking for <strong>{{ event.name }}</strong> is confirmed.
@@ -230,7 +294,57 @@
         Go to Events
       </NuxtLink>
     </div>
+
+    <!-- Payment Modal -->
+    <div
+        v-if="showPaymentModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      >
+        <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 relative">
+
+          <!-- Close -->
+          <button
+            @click="showPaymentModal = false"
+            class="absolute top-3 right-3 text-gray-400 hover:text-black"
+          >
+            ✕
+          </button>
+
+          <h3 class="text-xl font-semibold mb-1">Complete Payment</h3>
+          <p class="text-sm text-gray-600 mb-4">{{ event.name }}</p>
+
+          <!-- Amount -->
+          <div class="border rounded-lg p-4 mb-4 text-sm">
+            <div class="flex justify-between">
+              <span>Total</span>
+              <span class="font-semibold">
+                {{ formatCurrency(total, currency) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- ONE button only -->
+          <PayPalButton
+            :amount="total"
+            :reference-id="bookingId"
+            purpose="EVENT"
+            :currency="currency"
+            @success="handlePaymentSuccess"
+            @cancel="showPaymentModal = false"
+            @error="handlePaymentError"
+          />
+
+
+          <p class="text-xs text-gray-500 mt-3 text-center">
+            Pay securely using PayPal or Debit/Credit Card.
+          </p>
+        </div>
+      </div>
+
+
   </section>
+
+  
 </template>
 
 <script setup>
@@ -243,8 +357,40 @@ import { useCouponService } from '@/composables/useCouponService' // ✅
 
 const route = useRoute()
 const router = useRouter()
+
+const bookingId = ref(null)
+const showPaymentModal = ref(false)
+
+
+const selectedOccurrenceId = computed(() =>
+  Number(route.query.occurrenceId || null)
+)
+
+function handlePaymentSuccess(result) {
+  console.log('[Checkout] Payment success:', result)
+
+  showPaymentModal.value = false
+  success.value = true
+
+  // Optional auto-redirect
+  // setTimeout(() => {
+  //   router.push('/events')
+  // }, 2500)
+}
+
+
+function handlePaymentError(err) {
+  console.error('[Checkout] Payment error:', err)
+
+  alert(
+    err?.message ||
+    'Payment failed. If money was deducted, it will be refunded automatically.'
+  )
+}
+
+
 const { getEventById } = useEventsService()
-const { bookEvent } = useEventBookingService()
+const { bookOccurrence } = useEventBookingService()
 const { getSettings } = useSettingsService()
 const { validateCoupon } = useCouponService() // ✅
 
@@ -294,7 +440,15 @@ const isFormValid = computed(() => {
   const phoneValid = /^\d{7,15}$/.test(user.value.userPhone || '')
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.value.userEmail || '')
   const nameValid = !!user.value.firstName?.trim()
-  return event.value && nameValid && phoneValid && emailValid && acceptTerms.value
+  return (
+    event.value &&
+    selectedOccurrence.value &&
+    nameValid &&
+    phoneValid &&
+    emailValid &&
+    acceptTerms.value
+  )
+
 })
 
 /* ───────────── Price math (reactive with coupon) ───────────── */
@@ -302,6 +456,21 @@ const unitPrice = computed(() => Number(event.value?.price ?? 0))
 const subtotal = computed(() => Math.max(0, unitPrice.value * pax.value))
 const discount = computed(() => (couponApplied.value ? Math.min(couponQuote.value.discount || 0, subtotal.value) : 0))
 const total = computed(() => Math.max(0, subtotal.value - discount.value))
+
+const selectedOccurrence = computed(() => {
+  if (!event.value?.occurrences?.length) return null
+  if (!selectedOccurrenceId.value) return null
+
+  return (
+    event.value.occurrences.find(
+      o => o.id === selectedOccurrenceId.value
+    ) || null
+  )
+})
+
+console.log(selectedOccurrence)
+
+
 
 /* Re-validate coupon when pax/event changes (only if user has a code typed/applied) */
 watch([pax, () => event.value?.id], async () => {
@@ -375,11 +544,11 @@ function clearCoupon() {
   couponError.value = ''
 }
 
-/* ───────────── Booking ───────────── */
-async function handleComplete() {
-  if (!isFormValid.value) return
 
-  // If a code is typed but invalid, block submit
+
+async function handleComplete() {
+  if (!selectedOccurrence.value) return
+  if (!isFormValid.value) return
   if (couponInvalidBlock.value) return
 
   submitting.value = true
@@ -389,18 +558,23 @@ async function handleComplete() {
       userName: `${user.value.firstName} ${user.value.lastName}`.trim(),
       userEmail: user.value.userEmail,
       userPhone: user.value.userPhone,
-      // send couponCode only if valid; backend will record redemption after booking
-      ...(couponApplied.value ? { couponCode: couponCode.value.trim().toUpperCase() } : {}),
+      ...(couponApplied.value
+        ? { couponCode: couponCode.value.trim().toUpperCase() }
+        : {}),
     }
-    await bookEvent(event.value.id, payload)
-    success.value = true
-    setTimeout(() => router.push('/events'), 2500)
+
+    // 🔑 IMPORTANT: backend must create booking with status = PENDING
+    const res = await bookOccurrence(selectedOccurrence.value.id, payload)
+
+    bookingId.value = res.id // <-- booking ID from backend
+    showPaymentModal.value = true // <-- reveal PayPal button
   } catch (err) {
     alert(err.message || 'Booking failed.')
   } finally {
     submitting.value = false
   }
 }
+
 
 /* ───────────── Init ───────────── */
 onMounted(async () => {

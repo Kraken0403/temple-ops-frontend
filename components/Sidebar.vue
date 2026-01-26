@@ -1,7 +1,7 @@
 <template>
   <!-- Fixed left rail, scrollable inside -->
   <aside
-    class="fixed left-0 top-0 z-50 h-screen w-64 bg-white border-r shadow-sm transform transition-transform duration-200"
+    class="fixed left-0 top-0 z-50 h-screen w-64 bg-white border-r border-[#ccc] shadow-sm transform transition-transform duration-200"
     :class="open ? 'translate-x-0' : '-translate-x-full'"
   >
     <div class="h-full flex flex-col">
@@ -9,14 +9,14 @@
       <nav class="flex-1 overflow-y-auto p-4 space-y-2 text-sm">
         <img class="mb-5 max-w-[140px]" src="../assets/images/logo.png" alt="Logo" />       
 
-        <NavItem
+        <NavItem class="cursor-pointer"
           v-if="hasPerm('Bookings')"
           to="/admin/bookings"
           label="Bookings"
           icon="event"
         />
 
-        <NavItem
+        <NavItem class="cursor-pointer"
           v-if="isPriest"
           to="/admin/priest/dashboard"
           label="My Dashboard"
@@ -24,7 +24,7 @@
         />
 
         <!-- POOJAS -->
-        <NavItem
+        <NavItem class="cursor-pointer"
           v-if="hasPerm('Poojas')"
           to="/admin/poojas"
           label="Pujas"
@@ -35,7 +35,7 @@
         <div v-if="hasPerm('Events')" class="mt-3">
           <button
             @click="isEventsOpen = !isEventsOpen"
-            class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
+            class="w-full flex cursor-pointer justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
           >
             <div class="flex items-center gap-2">
               <span class="material-icons text-[18px]">calendar_today</span>
@@ -46,9 +46,9 @@
             </span>
           </button>
           <ul v-if="isEventsOpen" class="ml-6 mt-2 space-y-1 text-sm">
-            <li><NavItem to="/admin/events" label="All Events" icon="list" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/events" label="All Events" icon="list" /></li>
             <li v-if="hasPerm('Bookings')">
-              <NavItem to="/admin/events/bookings" label="Bookings" icon="book_online" />
+              <NavItem class="cursor-pointer" to="/admin/events/bookings" label="Bookings" icon="book_online" />
             </li>
           </ul>
         </div>
@@ -57,7 +57,7 @@
         <div v-if="hasPerm('Priests')" class="mt-3">
           <button
             @click="isPriestsOpen = !isPriestsOpen"
-            class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
+            class="w-full flex cursor-pointer justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
           >
             <div class="flex items-center gap-2">
               <span class="material-icons text-[18px]">self_improvement</span>
@@ -68,8 +68,8 @@
             </span>
           </button>
           <ul v-if="isPriestsOpen" class="ml-6 mt-2 space-y-1 text-sm">
-            <li><NavItem to="/admin/priests" label="All Priests" icon="list" /></li>
-            <li><NavItem to="/admin/priests/calendar" label="Calendar" icon="calendar_today" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/priests" label="All Priests" icon="list" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/priests/calendar" label="Calendar" icon="calendar_today" /></li>
           </ul>
         </div>
 
@@ -77,7 +77,7 @@
         <div v-if="hasPerm('Sponsorships')" class="mt-3">
           <button
             @click="isSponsorshipsOpen = !isSponsorshipsOpen"
-            class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
+            class="w-full flex cursor-pointer justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
           >
             <div class="flex items-center gap-2">
               <span class="material-icons text-[18px]">redeem</span>
@@ -88,9 +88,9 @@
             </span>
           </button>
           <ul v-if="isSponsorshipsOpen" class="ml-6 mt-2 space-y-1 text-sm">
-            <li><NavItem to="/admin/sponsorships" label="Sponsorships" icon="list_alt" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/sponsorships" label="Sponsorships" icon="list_alt" /></li>
             <li v-if="hasPerm('Bookings')">
-              <NavItem to="/admin/sponsorships/bookings" label="Bookings" icon="book_online" />
+              <NavItem class="cursor-pointer" to="/admin/sponsorships/bookings" label="Bookings" icon="book_online" />
             </li>
           </ul>
         </div>
@@ -99,7 +99,7 @@
         <div v-if="hasPerm('Donations')" class="mt-3">
           <button
             @click="isDonationsOpen = !isDonationsOpen"
-            class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
+            class="w-full cursor-pointer flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
           >
             <div class="flex items-center gap-2">
               <span class="material-icons text-[18px]">volunteer_activism</span>
@@ -110,8 +110,8 @@
             </span>
           </button>
           <ul v-if="isDonationsOpen" class="ml-6 mt-2 space-y-1 text-sm">
-            <li><NavItem to="/admin/donations" label="Items" icon="payment" /></li>
-            <li><NavItem to="/admin/donations/records" label="Records" icon="receipt_long" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/donations" label="Items" icon="payment" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/donations/records" label="Records" icon="receipt_long" /></li>
           </ul>
         </div>
 
@@ -119,7 +119,7 @@
         <div class="mt-3">
           <button
             @click="isPagesOpen = !isPagesOpen"
-            class="w-full flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
+            class="w-full cursor-pointer flex justify-between items-center px-2 py-2 rounded hover:bg-gray-100"
           >
             <div class="flex items-center gap-2">
               <span class="material-icons text-[18px]">article</span>
@@ -130,22 +130,30 @@
             </span>
           </button>
           <ul v-if="isPagesOpen" class="ml-6 mt-2 space-y-1 text-sm">
-            <li><NavItem to="/admin/static-pages/home" label="Home" icon="home" /></li>
-            <li><NavItem to="/admin/static-pages/about" label="About" icon="info" /></li>
-            <li><NavItem to="/admin/static-pages/gallery" label="Gallery" icon="photo_library" /></li>
-            <li><NavItem to="/admin/static-pages/bhajans" label="Bhajans" icon="queue_music" /></li>
-            <li><NavItem to="/admin/static-pages/privacy" label="Privacy Policy" icon="policy" /></li>
-            <li><NavItem to="/admin/static-pages/terms" label="Terms & Conditions" icon="gavel" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/static-pages/home" label="Home" icon="home" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/static-pages/about" label="About" icon="info" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/static-pages/gallery" label="Gallery" icon="photo_library" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/static-pages/bhajans" label="Bhajans" icon="queue_music" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/static-pages/privacy" label="Privacy Policy" icon="policy" /></li>
+            <li><NavItem class="cursor-pointer" to="/admin/static-pages/terms" label="Terms & Conditions" icon="gavel" /></li>
           </ul>
         </div>
-
-
 
         <!-- COUPONS (single tab, right above Settings) -->
         <NavItem
           to="/admin/coupons"
           label="Coupons"
           icon="local_offer"
+          class="cursor-pointer"
+        />
+
+        <!-- NEWSLETTER -->
+        <NavItem
+          v-if="hasPerm('Newsletter')"
+          to="/admin/newsletter"
+          label="Newsletter"
+          icon="mail"
+          class="cursor-pointer"
         />
 
         <!-- SETTINGS -->
@@ -154,14 +162,16 @@
           to="/admin/settings"
           label="Settings"
           icon="settings"
+          class="cursor-pointer"
         />
+
       </nav>
 
       <!-- Static bottom bar (not scrolling) -->
-      <div class="p-4 border-t bg-white">
+      <div class="p-4 border-t border-[#ccc] bg-white">
         <button
           @click="$emit('close'); logout()"
-          class="w-full text-left px-4 py-2 rounded hover:bg-gray-100 text-red-600"
+          class="w-full text-left cursor-pointer px-4 py-2 rounded hover:bg-gray-100 text-red-600"
         >
           Logout
         </button>
@@ -179,6 +189,7 @@ import { useUserService } from '~/composables/useUserService'
 const props = defineProps({
   open: { type: Boolean, default: true },
 })
+
 
 defineEmits(['close'])
 

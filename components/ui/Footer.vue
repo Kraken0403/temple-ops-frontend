@@ -78,7 +78,7 @@
             <ul class="space-y-4 text-sm">
               <li class="flex items-center">
                 <i class="material-icons mr-2">email</i>
-                <a href="mailto:info@sanatantemple.org" class="hover:underline">info@sanatantemple.org</a>
+                <a href="mailto:info@sanatantemple.org" class="hover:underline">info@sanatanmandirtampa.org</a>
               </li>
               <li class="flex items-center">
                 <i class="material-icons mr-2">phone</i>

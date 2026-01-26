@@ -1,7 +1,7 @@
 <template>
   <div>
     <h2 class="text-[22px] font-bold mb-[30px] text-center">
-      Venue Detail
+      Venue Details
     </h2>
 
     <!-- Choice -->
@@ -248,6 +248,7 @@ function nextStep() {
 
     console.log('venue selected', v)
     emit('update-venue', {
+      venueType: 'TEMPLE',
       address: [v?.title, v?.address].filter(Boolean).join(', ') || 'Temple Venue',
       city: '',
       state: '',
@@ -267,6 +268,7 @@ function nextStep() {
   }
 
   emit('update-venue', {
+    venueType: 'CUSTOM',
     address: [localVenue.addressExtra, addressLine].filter(Boolean).join(', '),
     city: localVenue.city,
     state: localVenue.state,
@@ -274,6 +276,7 @@ function nextStep() {
     lat,
     lng,
   })
+
 
   emit('next')
 }
