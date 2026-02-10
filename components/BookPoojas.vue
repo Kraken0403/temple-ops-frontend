@@ -186,8 +186,29 @@ import { ref, onMounted, computed } from 'vue'
 import { useRuntimeConfig } from '#app'
 import { usePoojaService } from '@/composables/usePoojaService'
 import bg from '@/assets/images/bg-pooja.png'
+import { useSettingsService } from '@/composables/useSettingsService'
 
 /* ================= STATE ================= */
+const settings = ref(null)
+const currencyCode = computed(() => settings.value?.currency_code || 'USD')
+
+const { getSettings } = useSettingsService()
+
+onMounted(async () => {
+  try {
+    const [poojaData, settingsData] = await Promise.all([
+      fetchPoojas(),
+      getSettings(),
+    ])
+
+    poojas.value = poojaData
+    settings.value = settingsData
+  } catch (e) {
+    console.error(e)
+    error.value = true
+  }
+})
+
 const page = ref(1)
 const perPage = 6
 
@@ -233,10 +254,11 @@ function formatDuration(minutes) {
 function formatMoney(amount) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'INR',
+    currency: currencyCode.value,
     maximumFractionDigits: 0,
   }).format(amount || 0)
 }
+
 </script>
 
 <style scoped>

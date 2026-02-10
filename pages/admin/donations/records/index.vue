@@ -28,6 +28,12 @@
           <p class="text-sm text-gray-600 mb-1">
             {{ r.donorEmail || '—' }} &middot; {{ r.donorPhone || '—' }}
           </p>
+          <p class="text-sm text-gray-600">
+            Status: 
+            <span class="font-medium text-gray-800">
+              {{ r.status }}
+            </span>
+          </p>
 
           <!-- 🔒 Use immutable snapshot fields -->
           <p class="text-sm text-gray-600">

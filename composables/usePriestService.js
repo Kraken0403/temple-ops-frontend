@@ -108,6 +108,8 @@ export const usePriestService = () => {
   /* ───────── Slots ───────── */
   const fetchSlots = async (priestId) => {
     const res = await fetch(`${apiBase}/priest/${priestId}/slots`, { headers: getHeaders() })
+    console.log('get all slots', res)
+
     return handle(res, 'Failed to load slots')
   }
 
@@ -122,6 +124,8 @@ export const usePriestService = () => {
 
   const getSlotsByPriest = async (priestId) => {
     const res = await fetch(`${apiBase}/priest/${priestId}/slots`, { headers: getHeaders() })
+    console.log('get slots by priest', res)
+
     return handle(res, 'Failed to fetch slots')
   }
 

@@ -1,8 +1,25 @@
-export default defineNuxtPlugin(() => {
-    const script = document.createElement('script')
-    script.src =
-      'https://www.paypal.com/sdk/js?client-id=AfyJU3W9WaT8TbPhdIIK9yjOQF7PSGQfcCTGtx-WYsXrlVwpIB0_l00YGz9SF0FUFA1hY6PWt6PNlhk-&currency=USD'
-    script.async = true
-    document.body.appendChild(script)
-  })
-  
+export default defineNuxtPlugin(async () => {
+  if (process.server) return
+  if (window.paypal) return
+
+  const config = useRuntimeConfig()
+
+  // 🔑 Fetch settings BEFORE loading PayPal
+  const { getSettings } = useSettingsService()
+  const settings = await getSettings()
+
+  const currencyCode = settings?.currency_code || 'USD'
+
+  const script = document.createElement('script')
+  script.src =
+    `https://www.paypal.com/sdk/js` +
+    `?client-id=${config.public.paypalClientId}` +
+    `&currency=${currencyCode}` +
+    `&components=buttons` +
+    `&enable-funding=card`
+
+  script.async = true
+  script.defer = true
+
+  document.body.appendChild(script)
+})

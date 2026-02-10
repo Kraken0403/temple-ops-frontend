@@ -86,7 +86,7 @@ export function useDonationService() {
   }
 
   /** POST /donations */
-  const createRecord = async (data) => {
+  const createDonation = async (data) => {
     const res = await fetch(`${base}/donations`, {
       method: 'POST',
       headers: jsonHeaders,
@@ -153,7 +153,7 @@ export function useDonationService() {
     // Donation Records
     listRecords,
     getRecordById,
-    createRecord,
+    createDonation,
     updateRecord,
     removeRecord,
   }
