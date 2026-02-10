@@ -32,7 +32,6 @@ export default defineNuxtConfig({
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE,
       googleMapsKey: process.env.NUXT_PUBLIC_GOOGLE_MAPS_KEY,
-      paypalTemp: process.env.PAYPAL_TEMP,
       paypalClientId: process.env.PAYPAL_CLIENT_ID,
     }
   }

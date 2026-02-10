@@ -215,14 +215,16 @@
         </div>
 
         <PayPalButton
-          :amount="Number(quote?.total ?? baseAmount).toFixed(2)"
-          :reference-id="bookingId"
+          :amount="Number(quote?.total ?? baseAmount ?? 0)"
+          :reference-id="Number(bookingId)"
           purpose="SERVICES"
           currency="USD"
           @success="handlePaymentSuccess"
           @cancel="showPaymentModal = false"
           @error="handlePaymentError"
         />
+
+
 
         <p class="text-xs text-gray-500 mt-3 text-center">
           Pay securely using PayPal or Debit/Credit Card.
