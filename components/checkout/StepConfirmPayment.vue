@@ -344,6 +344,7 @@ async function handleProceedToPayment () {
           : undefined,
     })
 
+    console.log('booking Id', res.id)
     bookingId.value = res.id       // 🔑 same as event
     showPaymentModal.value = true  // 🔑 open PayPal
   } catch (err) {
